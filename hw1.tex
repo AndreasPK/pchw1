@@ -1,0 +1,121 @@
+\documentclass[]{article}
+%\usepackage[utf8]{inputenc}
+\usepackage{url}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{amsmath}
+
+\lstset{showstringspaces=false}
+
+% Title Page
+\title{PC Homework1}
+\author{}
+
+
+\begin{document}
+\maketitle
+
+\section{Loops}
+
+\begin{lstlisting}[language=Fortran,tabsize=4]
+L 
+  for i = 1 to 100
+  	for j = 1 to 100
+        S a[i,j]=i*100+j
+    end for
+  end for
+L' 
+    for i = 2 to 99
+		for j = 1 to 100
+		  S' a[i,j]=(a[i-1,j]+a[i+1,j])/2.0
+		end for
+	end for
+L" 
+	for i = 1 to 100
+		for j = 2 to 99
+			S" a[i,j]=(a[i,j-1]+a[i,j+1])/2.0
+		end for
+	end for
+\end{lstlisting}
+
+
+\section{Iteration spaces}
+
+\subsection{L}
+$$\{ (i) : 1 \leq i \leq 100\}, \{ (j) : 1 \leq j \leq 100\} $$
+\subsection{L'}
+$$\{ (i) : 2 \leq i \leq 99\}, \{ (j) : 1 \leq j \leq 100\} $$
+\subsection{L''}
+$$\{ (i) : 1 \leq i \leq 100\}, \{ (j) : 2 \leq j \leq 99\} $$
+
+\section{Execution Index Sets}
+
+\subsection{L}
+$${[1:100]}^2$$
+\subsection{L'}
+$${[2:99,1:100]}$$
+\subsection{L''}
+$${[1:100,2:99]}$$
+
+
+
+\section{Standard Execution Orders}
+
+\subsection{L' \& L''}
+The standard execution order for the iteration vectors is:
+
+$$ (i,j) << (i',j') \text{iff} (i,j) < (i',j') $$
+
+Assuming the tuples are elements of the execution index set.
+
+\section{Control Sets}
+
+According to the lecture slides these are the "\textit{set of all iteration vector pairs respecting $\ll$}"\footnote{compar18s02, page9}.	
+
+Hence for $[S,S']: S = S'$ we get the standard execution order as the control set.
+
+This applies to both Control Sets $[S',S'], [S'',S'']$
+
+\section{Distance \& Direction}
+
+dist((2,1),(99,1)) = (97,0)
+
+dist((2,1),(99,100)) = (97,99)
+
+dist((2,100),(99,1)) = (97,-99)
+
+dir((2,100),(99,100)) = $(<,=)$
+
+dir((99,100),(99,1)) = $(=,<)$
+
+dir((99,1),(2,1)) = $(<, =)$
+
+\section{Added Loop}
+
+\begin{lstlisting}
+L_ for k=1 to 1
+    L 
+    L' 
+    L"
+end for
+\end{lstlisting}
+
+\section{Additional Control Sets for L\_}
+%f((i; j); (i0; j0) 2 [S0]  [S0] : (i; j) < (i0; j0)g
+
+Since $S \textit{bef} S' \textit{bef} S''$ and there is only a single iteration
+of L\_ so $\forall s: [s] = (1,*,*)$ the
+control set is wholly decided by the $bef$ rule.
+
+Every S statement get's executed before any S' statement:
+$$[S,S'] = \{ ((k,i,j),(k',i',j')) \in [S]\times[S'] \} $$
+
+Every S statement get's executed before any S' statement:
+$$[S,S''] = \{ ((k,i,j),(k',i',j')) \in [S]\times[S''] \} $$
+
+Every S' statement get's executed before any S'' statement:
+$$[S',S''] = \{ ((k,i,j),(k',i',j')) \in [S']\times[S''] \} $$
+
+
+\end{document}          
