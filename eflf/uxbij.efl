@@ -1,0 +1,18 @@
+program backsub
+
+float u[0:9,0:9]
+float b[0:9]
+float x[0:9]
+
+int i
+int j
+
+for i=9 to 0
+    x[i] = b[i]
+    for j = i + 1 to 10-1
+        x[i] = x[i] - u[i,j] * x[j]
+    endfor
+    x[i] = x[i]/u[i,i]
+endfor
+
+end
