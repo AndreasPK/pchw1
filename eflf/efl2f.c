@@ -46,6 +46,27 @@ void gen_exprlist(N_EXPRLIST * exl) {
         }
     }
 
+typedef struct tA_LIST {
+    N_VAR * var;              /* variable */
+    struct tA_LIST * next;
+    } A_LIST;
+
+A_LIST * record = NULL;
+
+void addRec(N_VAR * v) {
+    if(record == NULL) {
+        record = (A_LIST*) malloc(sizeof(A_LIST));
+        record->var = v;
+        record->next = NULL;
+    } else {
+        A_LIST * p;
+        for(p = record; p->next != NULL; p = p->next);
+        p->next = (A_LIST*) malloc(sizeof(A_LIST));
+        p->next->next = NULL;
+        p->next->var = v;
+    }
+}
+
 void gen_var_ref(N_VAR * v, BOOL write) {
     ENTRY * e;
     e = v->entry;
@@ -58,10 +79,43 @@ void gen_var_ref(N_VAR * v, BOOL write) {
         if (v->index == NULL) 
             printf("{index expression list missing}\n");
         printf("(");
+        //TODO: Array usage
         gen_exprlist(v->index);
         printf(")");
+        if(!write)
+            addRec(v);
         }
     }
+
+
+void gen_arr_usage(N_VAR * v, int n) {
+    ENTRY * e;
+    e = v->entry;
+    if (e->dim_type == _SCAL) {
+            printf("Error: Treating scalar as array");
+        }
+    else {
+        if (v->index == NULL) 
+            printf("{index expression list missing}\n");
+
+        indent(idepth); //%03d
+        printf("    write(*,*) '%03d %s USE ',", n, e->id);
+        //printf("(");
+        gen_exprlist(v->index);
+        //printf(")");
+        printf("\n");
+        }
+    }
+
+void printRecord(int n) {
+    if (record == NULL)
+        return;
+    gen_arr_usage(record->var, n);
+    void* p = record;
+    record = record -> next;
+    free(p);
+    printRecord(n);
+}
 
 void gen_oper(int o) {
   switch(o) {
@@ -80,6 +134,7 @@ void gen_oper(int o) {
   case NOT_OP:      printf(".not."); break;
   }
 }
+
 
 void gen_expr(N_EXPR * ex) {
     switch(ex->typ) {
@@ -133,6 +188,8 @@ void gen_assign(N_ASSIGN * s, int nr) {
         }
     gen_expr(s->expr);
     printf("\n");
+    printRecord(nr);
+    record = NULL;
     }
 
 void gen_stmts(N_STMTLIST * stmts);
