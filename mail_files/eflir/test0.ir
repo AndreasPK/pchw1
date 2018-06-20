@@ -1,0 +1,21 @@
+test0
+a	INT	2	1	10	1	10
+i	INT
+j	INT
+STMTLIST
+	ASSIGN @001
+		VAR
+			ENTRY i
+		EXPR
+		INT 2
+	ASSIGN @002
+		VAR
+			ENTRY j
+		EXPR
+		BINOP *
+			EXPR
+			VAR
+				ENTRY i
+			EXPR
+			INT 3
+/STMTLIST

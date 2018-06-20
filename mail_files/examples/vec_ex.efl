@@ -1,0 +1,20 @@
+program vec_example
+
+float a[1:20,1:20]
+float b[1:20,1:20]
+float c[1:20,1:20]
+float d[1:20,1:20]
+
+int i
+int j
+
+for i=2 to 20-1
+   for j=3 to 20-4
+      c[i,j]=a[i,j]*b[i,j]
+      a[i+1,j+1]=c[i,j-2]/2.0+c[i-1,j]*3.0
+      d[i,j]=d[i-1,j-1]+1.0
+      b[i,j+4]=d[i,j]-1.0
+   endfor
+endfor
+
+end

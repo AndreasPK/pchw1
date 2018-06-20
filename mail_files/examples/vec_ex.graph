@@ -1,0 +1,24 @@
+digraph dependencies {
+  subgraph cluster_0 {
+    s2 [label="S3"];
+    graph[style=dotted];
+  }
+
+  subgraph cluster_1 {
+    s3 [label="S4"];
+    graph[style=dotted];
+  }
+
+  subgraph cluster_2 {
+    s0 [label="S1"];
+    s1 [label="S2"];
+    graph[style=dotted];
+  }
+
+  s0 -> s1 [label = " T1 T2", weight = 100];
+  s1 -> s0 [label = " T1"];
+  s1 -> s2 [weight = 100, style = "invis"];
+  s2 -> s2 [label = " T1"];
+  s2 -> s3 [label = " T0", weight = 100];
+  s3 -> s0 [label = " T2"];
+}

@@ -1,0 +1,99 @@
+test1
+a	INT	2	1	10	1	10
+b	INT	2	1	10	1	10
+i	INT
+j	INT
+STMTLIST
+	ASSIGN @001
+		VAR
+			ENTRY i
+		EXPR
+		BINOP +
+			EXPR
+			INT 1
+			EXPR
+			INT 2
+	ASSIGN @002
+		VAR
+			ENTRY j
+		EXPR
+		BINOP *
+			EXPR
+			VAR
+				ENTRY i
+			EXPR
+			INT 3
+	FOR @901
+		ENTRY i
+		EXPR
+		INT 1
+		EXPR
+		INT 4
+		STMTLIST
+			FOR @902
+				ENTRY j
+				EXPR
+				INT 1
+				EXPR
+				INT 3
+				STMTLIST
+					ASSIGN @003
+						VAR
+							ENTRY a
+							EXPRLIST
+								EXPR
+								VAR
+									ENTRY i
+								EXPR
+								VAR
+									ENTRY j
+							/EXPRLIST
+						EXPR
+						BINOP +
+							EXPR
+							BINOP *
+								EXPR
+								INT 100
+								EXPR
+								VAR
+									ENTRY i
+							EXPR
+							VAR
+								ENTRY j
+					ASSIGN @004
+						VAR
+							ENTRY b
+							EXPRLIST
+								EXPR
+								VAR
+									ENTRY i
+								EXPR
+								BINOP +
+									EXPR
+									BINOP -
+										EXPR
+										INT 10
+										EXPR
+										VAR
+											ENTRY j
+									EXPR
+									INT 1
+							/EXPRLIST
+						EXPR
+						BINOP *
+							EXPR
+							VAR
+								ENTRY a
+								EXPRLIST
+									EXPR
+									VAR
+										ENTRY i
+									EXPR
+									VAR
+										ENTRY j
+								/EXPRLIST
+							EXPR
+							INT 10
+				/STMTLIST
+		/STMTLIST
+/STMTLIST
