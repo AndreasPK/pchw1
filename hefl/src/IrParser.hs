@@ -162,7 +162,7 @@ pexpr = do
         try pvarExpr <|>
         try popExpr  <|>
         try pfloatExpr <|>
-        pparensExpr )
+        try pparensExpr )
 
 pvarExpr :: IrParser Expr
 pvarExpr = VarExpr <$> pvar
@@ -239,7 +239,7 @@ pstmtList = do
     string "STMTLIST" >> space1
     stmts <- many (try pstmt)
     string "/STMTLIST" >> space1
-    return []
+    return stmts
 
 mkSymbolTable :: [Entry] -> M.Map String Entry
 mkSymbolTable =
@@ -251,7 +251,6 @@ program = do
     symbols <- many (try symbolInfo)
     let symTbl = mkSymbolTable symbols
     stmts <- local (const symTbl) pstmtList
-    rest <- many anyChar
-    traceM $ "rest: " ++ rest
+    eof
     return $
         Program name symbols stmts
