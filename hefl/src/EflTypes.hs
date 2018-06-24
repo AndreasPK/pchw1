@@ -8,7 +8,12 @@ import qualified Data.Map as Map
 
 -- Symbol description
 data Entry
-    = ENTRY Id Type DimType (Maybe ARR_SIZE) deriving (Eq,Show,Ord)
+    = ENTRY
+    { varName :: Id,
+      varType :: Type,
+      varDim :: DimType,
+      varArrSize :: (Maybe ARR_SIZE)
+    } deriving (Eq,Show,Ord)
 
 data Type = INT | FLOAT deriving (Eq, Ord, Show)
 data Dependency = ANTI | OUT | TRUE deriving (Eq, Ord, Show)

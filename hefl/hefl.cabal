@@ -22,6 +22,8 @@ executable hefl
                       ,megaparsec
                       ,transformers
                       ,parser-combinators
+                      ,mtl
+                      ,prettyprinter
   other-modules:
     EflTypes
     IrParser
