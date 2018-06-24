@@ -82,9 +82,10 @@ data Op
     deriving (Eq, Ord, Show)
 
 data Expr
-    = FloatLit Double
+    = FloatLit String
     | IntLit Int
     | VarExpr Var
+    | ParensExpr Expr
     | OpExpr
     { exprOp :: Op
     , arg1 :: Expr

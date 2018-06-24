@@ -46,7 +46,7 @@ getInfo name = do
     --unsafePerformIO $ do
     --    mapM_ print $ M.toList tbl
     --    return (return 1)
-    maybe (fail $ "No entry for id:" ++ name) return mentry
+    maybe (error $ "No entry for id:" ++ name) return mentry
 
 linespace :: IrParser ()
 linespace = void $ takeWhileP Nothing (`elem` [' ', '\t'])
@@ -80,8 +80,6 @@ ptype = do
 pint :: IrParser Int
 pint = pntoken
 
-pfloat :: IrParser Double
-pfloat = read <$> ptoken
 
 prange :: IrParser (Int,Int)
 prange = pure (,) <*> pint <*> pint
@@ -103,47 +101,68 @@ symbolInfo = do
 
 pop :: IrParser (Int,Op)
 pop = do
-    opTypeToken <- ptoken
-    let opArgCount
-            | opTypeToken == "BINOP"
-            = 2
-            | otherwise
-            = 1
-    s <- ptoken
-    let op = case s of
-            "==" -> ET.EQ
-            "<>" -> NE
-            ">" -> ET.GT
-            ">=" -> GE
-            "<" -> ET.LT
-            "<=" -> LE
-            "+" -> PLUS
-            "-" -> MINUS
-            "/" -> DIV
-            "*" -> MULT
-            ".and." -> AND
-            ".or." -> OR
-            ".not." -> NOT
-            s -> error $ "Unknown operator " ++ s
+    opArgCount <- (string "BINOP" >> space1 >> return 2) <|>
+                   (string "UNOP" >> space1 >> return 1)
+    let operators
+            = [ ("=="     , ET.EQ)
+            ,   ("<>"     , NE   )
+            ,   (">"      , ET.GT)
+            ,   (">="     , GE   )
+            ,   ("<"      , ET.LT)
+            ,   ("<="     , LE   )
+            ,   ("+"      , PLUS )
+            ,   ("-"      , MINUS)
+            ,   ("/"      , DIV  )
+            ,   ("*"      , MULT )
+            ,   (".and."  , AND  )
+            ,   (".or."   , OR   )
+            ,   (".not."  , NOT  )
+            ]
+    let opParsers = map (\(s,op) -> try (string s >> space1 >> return op))
+                        operators
+    op <- choice (opParsers ++ [error "Unknown operator"])
     return (opArgCount, op)
 
 popExpr :: IrParser Expr
 popExpr = do
+    getInput >>= (traceM . take 50)
     (argCount,op) <- pop
+    getInput >>= (traceM . take 50)
     arg1 <- pexpr
     arg2 <- if argCount == 2
             then Just <$> pexpr
             else return Nothing
     return $ OpExpr op arg1 arg2
 
+pfloatExpr :: IrParser Expr
+pfloatExpr = do
+    string "FLOAT" >> space1
+    ds <- ptoken
+
+    --does it parse as float
+    seq (read ds :: Float) (return ())
+    return $
+        FloatLit ds
+
+pintExpr :: IrParser Expr
+pintExpr = do
+    string "INT" >> space1
+    i <- pint
+    return $
+        IntLit i
+
+--"NOOP" expressions - just a way to express parens
+pparensExpr :: IrParser Expr
+pparensExpr = ParensExpr <$> pexpr
+
 pexpr :: IrParser Expr
 pexpr = do
-    string "EXPR"
-    space1
-    (   try (string "INT" >> space1 >> IntLit <$> pint) <|>
-        try (pvarExpr) <|>
-        try (popExpr) <|>
-        try (string "FLOAT" >> space1 >> FloatLit <$> pfloat) )
+    string "EXPR" >> space1
+    (   try pintExpr <|>
+        try pvarExpr <|>
+        try popExpr  <|>
+        try pfloatExpr <|>
+        pparensExpr )
 
 pvarExpr :: IrParser Expr
 pvarExpr = VarExpr <$> pvar
