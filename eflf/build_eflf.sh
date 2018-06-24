@@ -3,5 +3,5 @@
 
 bison -d efl.y
 flex efl.l
-gcc -o eflf efl.tab.c lex.yy.c efl2f.c -lfl
+gcc -o eflf efl.tab.c lex.yy.c efl2f.c -L/usr/lib -lfl
 
