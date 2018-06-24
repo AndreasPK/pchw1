@@ -2,7 +2,7 @@
 {-# LANGUAGE StrictData #-}
 
 
-module Types where
+module EflTypes where
 
 import qualified Data.Map as Map
 
@@ -16,9 +16,8 @@ data DimType = IsArr | IsScalar deriving (Eq, Ord, Show)
 
 data ARR_SIZE
     = ARR_SIZE
-    { arank :: Int
-    , lb :: Int
-    , ub :: Int
+    { aranks :: Int
+    , ranges :: [(Int,Int)]
     }
     deriving (Eq, Ord, Show)
 
@@ -28,7 +27,7 @@ type SymbolMap = Map.Map String Entry
 
 
 data Var = Var { --NVAR
-    entry :: (Maybe Entry),
+    entry :: Maybe Entry,
     indexExprs :: [Expr] }
     deriving (Eq,Show,Ord)
 
@@ -80,7 +79,7 @@ data Op
 data Expr
     = FloatLit Double
     | IntLit Int
-    | VarExpr
+    | VarExpr Var
     | OpExpr
     { exprOp :: Op
     , arg1 :: Expr

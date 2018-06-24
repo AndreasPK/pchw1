@@ -23,5 +23,5 @@ executable hefl
                       ,transformers
                       ,parser-combinators
   other-modules:
-    Types
+    EflTypes
     IrParser
