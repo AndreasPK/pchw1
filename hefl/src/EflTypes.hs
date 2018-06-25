@@ -36,6 +36,9 @@ data Var = Var { --NVAR
     indexExprs :: [Expr] }
     deriving (Eq,Show,Ord)
 
+getVarName :: Var -> Id
+getVarName (Var (Just e) _) = varName e
+
 type Statements = [Statement]
 data Statement
     = Assign

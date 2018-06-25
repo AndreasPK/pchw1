@@ -27,3 +27,4 @@ executable hefl
   other-modules:
     EflTypes
     IrParser
+    IrPrinter
