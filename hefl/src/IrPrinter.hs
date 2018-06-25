@@ -16,8 +16,34 @@ import Data.Text.Prettyprint.Doc.Render.String
 import Text.Printf
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Reader
+import Data.Foldable
 
 type PrintState = Reader Int
+
+pprSymbols :: [Entry] -> Doc a
+pprSymbols syms = vsep $ map (pprEntry) syms
+
+pprEntry :: Entry -> Doc a
+pprEntry (ENTRY name t dim marrSize) =
+    pprType t <> pprArrDims marrSize <+> "::" <+> pretty name
+  where
+    pprArrDims Nothing = mempty
+    pprArrDims (Just as) =
+        ", dimension" <> pprArrSize as
+
+pprType :: Type -> Doc a
+pprType FLOAT = "real"
+pprType INT   = "integer"
+
+parensList :: [Doc a] -> Doc a
+parensList docs = "(" <> hsep (punctuate comma docs) <> ")"
+
+pprArrSize :: ARR_SIZE -> Doc a
+pprArrSize (ARR_SIZE _ ranges) =
+   parensList (map pprRange ranges)
+  where
+    pprRange (from,to) =
+        pretty from <> ":" <> pretty to
 
 instance Pretty Expr where
     pretty = pprExpr
@@ -43,28 +69,18 @@ pprOp NOT = ".not."
 pprId :: Id -> Doc a
 pprId = pretty
 
-pprType :: Type -> Doc a
-pprType FLOAT = "float"
-pprType INT   = "int"
-
-pprArrSize :: ARR_SIZE -> Doc a
-pprArrSize (ARR_SIZE _ ranges) =
-    list $ map pprRange ranges
-  where
-    pprRange (from,to) =
-        pretty from <> ":" <> pretty to
-
 pprVar :: Var -> Doc a
 pprVar v@(Var _ indices) =
     pretty (getVarName v) <> pprExprList indices
 
 pprExprList :: [Expr] -> Doc a
 pprExprList [] = mempty
-pprExprList xs = list $ map pretty xs
+pprExprList xs = parensList $ map pretty xs
 
 pprExpr :: Expr -> Doc a
 pprExpr (FloatLit l)    = pretty l
 pprExpr (IntLit i)      = pretty i
+pprExpr (StringLit s)   = "'" <> pretty s <> "'"
 pprExpr (VarExpr v)     = pprVar v
 pprExpr (ParensExpr e)  = parens $ pretty e
 pprExpr (OpExpr op e1 me1)
@@ -115,14 +131,14 @@ pprStatement :: Statement -> Doc a
 pprStatement s = runReader (pprStatementM s) 0
 
 pprProgram :: Program -> Doc a
-pprProgram (Program name _syms stmts) =
+pprProgram (Program name syms stmts) =
     "! Compilers for Parallel Systems" <> hardline <>
     "! 185.A64 SS 2018 A. Klebinger" <> hardline <>
     "! Generated from EFL IR" <> hardline <>
     hardline <>
     "program" <+> pretty name <> hardline <>
     hardline <>
-    "todo: definitions" <> hardline <>
+    pprSymbols syms <> hardline <>
     hardline <>
     (vsep $ map pprStatement stmts) <>
     hardline <>

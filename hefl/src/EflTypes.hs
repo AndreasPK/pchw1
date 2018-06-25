@@ -87,6 +87,7 @@ data Op
 data Expr
     = FloatLit String
     | IntLit Int
+    | StringLit String
     | VarExpr Var
     | ParensExpr Expr
     | OpExpr
