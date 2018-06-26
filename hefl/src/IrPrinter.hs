@@ -125,6 +125,12 @@ pprStatementM (For n var lb ub step stmts) = do
     return $ lbl <+> "do" <+> (pretty $ varName var) <+> "=" <+> pretty lb <+>
              "," <+> pretty ub <+> "," <> pretty step <> hardline <> body <>
                 end <> hardline
+pprStatementM (Write []) = return hardline
+pprStatementM (Write exprs) = do
+    let exprCount = length exprs
+    withoutLabel $  "write" <> parensList (replicate exprCount "*") <+>
+                    hsep (punctuate comma (map pretty exprs))
+
 
 --Print with indent zero
 pprStatement :: Statement -> Doc a

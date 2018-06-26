@@ -5,6 +5,7 @@
 module EflTypes where
 
 import qualified Data.Map as Map
+import Data.Foldable
 
 -- Symbol description
 data Entry
@@ -59,6 +60,7 @@ data Statement
         , step :: Expr
         , body :: Statements
         }
+    | Write [Expr]
     deriving (Eq, Ord, Show)
 
 data Program
@@ -95,3 +97,26 @@ data Expr
     , arg1 :: Expr
     , arg2 :: Maybe Expr }
     deriving (Eq, Ord, Show)
+
+foldExpr :: (b -> Expr -> b) -> b -> Expr -> b
+foldExpr f z e@(FloatLit {}) = f z e
+foldExpr f z e@(IntLit {}) = f z e
+foldExpr f z e@(StringLit {}) = f z e
+foldExpr f z e@(VarExpr (Var _ idxs)) = foldl' f (f z e) idxs
+foldExpr f z e@(ParensExpr e') = f (f z e) e'
+foldExpr f z e@(OpExpr _op e1 me2) =
+    let z' = (f (f z e) e1)
+    in maybe z' (f z') me2
+
+
+foldStatements :: (b -> Statement -> b) -> b -> Statement -> b
+foldStatements f z stmt@(Assign {}) =
+    f z stmt
+foldStatements f z stmt@(If _ _ ts fs) =
+    foldl' f (f z stmt) (ts ++ fs)
+foldStatements f z stmt@(For {body = bodyStmts}) =
+    foldl' f (f z stmt) bodyStmts
+foldStatements f z stmt@(Write {}) =
+    f z stmt
+
+
