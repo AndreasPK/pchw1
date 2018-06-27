@@ -9,5 +9,5 @@ module EflUtils where
 
 import EflTypes as ET
 
-mkStrExpr :: String -> Expr
-mkStrExpr = StringLit
+mkStrLit :: String -> Expr
+mkStrLit = StringLit

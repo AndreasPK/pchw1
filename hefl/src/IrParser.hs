@@ -34,8 +34,7 @@ unsafeLog = return . unsafePerformIO . putStrLn
 run :: IrParser a -> String -> Either (ParseError Char String) a
 run p s = runReader (runParserT p "NoFile" s) (M.empty)
 
-type SymbolTable = M.Map String Entry
-type IrParser = ParsecT String String (Reader SymbolTable)
+type IrParser = ParsecT String String (Reader SymbolMap)
 
 getInfo :: (MonadReader (M.Map String Entry) m,
             MonadParsec e String m)
@@ -125,9 +124,7 @@ pop = do
 
 popExpr :: IrParser Expr
 popExpr = do
-    getInput >>= (traceM . take 50)
     (argCount,op) <- pop
-    getInput >>= (traceM . take 50)
     arg1 <- pexpr
     arg2 <- if argCount == 2
             then Just <$> pexpr
@@ -241,15 +238,15 @@ pstmtList = do
     string "/STMTLIST" >> space1
     return stmts
 
-mkSymbolTable :: [Entry] -> M.Map String Entry
-mkSymbolTable =
+mkSymbolMap :: [Entry] -> M.Map String Entry
+mkSymbolMap =
     foldl' (\m e -> M.insert (varName e) e m) M.empty
 
 program :: IrParser Program
 program = do
     name <- ptoken
     symbols <- many (try symbolInfo)
-    let symTbl = mkSymbolTable symbols
+    let symTbl = mkSymbolMap symbols
     stmts <- local (const symTbl) pstmtList
     eof
     return $

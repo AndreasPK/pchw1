@@ -1,11 +1,23 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE RecordWildCards #-}
+
 
 
 module EflTypes where
 
 import qualified Data.Map as Map
 import Data.Foldable
+import Control.Monad
+import Control.Monad.Identity
+
+import Debug.Trace
+
+-- | A version of 'concatMap' that works with a monadic predicate.
+concatMapM :: Monad m => (a -> m [b]) -> [a] -> m [b]
+{-# INLINE concatMapM #-}
+concatMapM op = foldr f (return [])
+    where f x xs = do x <- op x; if null x then xs else do xs <- xs; return $ x++xs
 
 -- Symbol description
 data Entry
@@ -30,6 +42,10 @@ data ARR_SIZE
 type Id = String
 
 type SymbolMap = Map.Map String Entry
+
+-- | Loop depth
+type LoopLevel = Int
+
 
 
 data Var = Var { --NVAR
@@ -102,12 +118,14 @@ foldExpr :: (b -> Expr -> b) -> b -> Expr -> b
 foldExpr f z e@(FloatLit {}) = f z e
 foldExpr f z e@(IntLit {}) = f z e
 foldExpr f z e@(StringLit {}) = f z e
-foldExpr f z e@(VarExpr (Var _ idxs)) = foldl' f (f z e) idxs
-foldExpr f z e@(ParensExpr e') = f (f z e) e'
+foldExpr f z e@(VarExpr (Var _ idxs)) = foldl' (foldExpr f) (f z e) idxs
+foldExpr f z e@(ParensExpr e') = foldExpr f (f z e) e'
 foldExpr f z e@(OpExpr _op e1 me2) =
-    let z' = (f (f z e) e1)
-    in maybe z' (f z') me2
+    let z' = (foldExpr f (f z e) e1)
+    in maybe z' (foldExpr f z') me2
 
+foldMapExpr :: (Expr -> [b]) -> Expr -> [b]
+foldMapExpr f e = foldExpr (\l e -> l ++ f e) [] e
 
 foldStatements :: (b -> Statement -> b) -> b -> Statement -> b
 foldStatements f z stmt@(Assign {}) =
@@ -118,5 +136,24 @@ foldStatements f z stmt@(For {body = bodyStmts}) =
     foldl' f (f z stmt) bodyStmts
 foldStatements f z stmt@(Write {}) =
     f z stmt
+
+--Replace occurrences of statemens with a list of statements
+updateStatementsM :: Monad m => (Statement -> m Statements) -> Statement -> m Statements
+updateStatementsM f stmt@Assign{} =
+    f stmt
+updateStatementsM f stmt@If{..} = do
+    thenStmts <- concatMapM (updateStatementsM f) thenBlock
+    elseStmts <- concatMapM (updateStatementsM f) elseBlock
+    f (stmt{thenBlock = thenStmts, elseBlock = elseStmts})
+updateStatementsM f stmt@For{..} = do
+    bodyStmts <- concatMapM (updateStatementsM f) body
+    f stmt{body = bodyStmts}
+updateStatementsM f stmt@Write{} =
+    f stmt
+
+updateStatements :: (Statement -> Statements) -> Statement -> Statements
+updateStatements f s =
+    let Identity res = (updateStatementsM (return . f)) s
+    in res
 
 

@@ -30,3 +30,4 @@ executable hefl
     IrPrinter
     EflUtils
     EflLog
+    LogParser

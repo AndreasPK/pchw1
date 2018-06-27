@@ -5,6 +5,7 @@ import Text.Megaparsec.Char
 
 import EflTypes
 import IrParser
+import EflLog
 import System.Environment
 
 import Data.Map as M
@@ -16,10 +17,11 @@ import Data.Either
 --main :: IO ()
 main = do
   s <- readFile "input/test1.ir"
-  let readerM = runParserT program "Foo" s :: Reader SymbolTable (Either (ParseError Char String) Program)
+  let readerM = runParserT program "Foo" s :: Reader SymbolMap (Either (ParseError Char String) Program)
   let result = runReader readerM M.empty :: (Either (ParseError Char String) Program)
   let parsedAst = fromRight (error "Failed to parse program") result :: Program
-  print result
+  --print result
 
-
-  return parsedAst
+  let withLogging = addLogStatements parsedAst
+  --print withLogging
+  return withLogging

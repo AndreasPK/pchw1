@@ -107,8 +107,8 @@ pprStatementM (Assign n v rhs) = do
     return $ lbl <> pprVar v <+> "=" <+> pretty rhs <> hardline
 pprStatementM (If n cond t f) = do
     lbl <- pprLabel n
-    stmtsTrue <- vsep <$> local (+4) (mapM pprStatementM t)
-    stmtsFalse <- vsep <$> local (+4) (mapM pprStatementM t)
+    stmtsTrue <- mconcat <$> local (+4) (mapM pprStatementM t)
+    stmtsFalse <- mconcat <$> local (+4) (mapM pprStatementM t)
     elsed <- withoutLabel "else"
     endd <- withoutLabel "end if"
     let fdoc
@@ -116,20 +116,19 @@ pprStatementM (If n cond t f) = do
             | otherwise = elsed <> hardline <> stmtsFalse
 
     return $ lbl <> "if" <+> parens (pretty cond) <+> "then" <> hardline <>
-        stmtsTrue <> fdoc <> endd
+        stmtsTrue <> fdoc <> endd <> hardline
 pprStatementM (For n var lb ub step stmts) = do
     lbl <- pprLabel n
-    body <- vsep <$> local (+4) (mapM pprStatementM stmts) :: PrintState (Doc a)
+    body <- mconcat <$> local (+4) (mapM pprStatementM stmts) :: PrintState (Doc a)
     end <- withoutLabel "end do"
 
     return $ lbl <+> "do" <+> (pretty $ varName var) <+> "=" <+> pretty lb <+>
              "," <+> pretty ub <+> "," <> pretty step <> hardline <> body <>
                 end <> hardline
-pprStatementM (Write []) = return hardline
+pprStatementM (Write []) = error "Write without arguments"
 pprStatementM (Write exprs) = do
-    let exprCount = length exprs
-    withoutLabel $  "write" <> parensList (replicate exprCount "*") <+>
-                    hsep (punctuate comma (map pretty exprs))
+    withoutLabel $  "write(*,*) " <>
+                    hsep (punctuate comma (map pretty exprs)) <> hardline
 
 
 --Print with indent zero
@@ -146,7 +145,7 @@ pprProgram (Program name syms stmts) =
     hardline <>
     pprSymbols syms <> hardline <>
     hardline <>
-    (vsep $ map pprStatement stmts) <>
+    (mconcat $ map pprStatement stmts) <>
     hardline <>
     "end program" <+> pretty name <> hardline
 
