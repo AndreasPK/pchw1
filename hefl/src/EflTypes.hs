@@ -29,7 +29,7 @@ data Entry
     } deriving (Eq,Show,Ord)
 
 data Type = INT | FLOAT deriving (Eq, Ord, Show)
-data Dependency = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
+data DependencyType = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
 data DimType = IsArr | IsScalar deriving (Eq, Ord, Show)
 
 data ARR_SIZE

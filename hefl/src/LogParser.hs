@@ -40,11 +40,14 @@ type Indicies = [Int]
 data Use = Def | Use | LoopStart | LoopEnd deriving (Eq,Ord,Show)
 data LogEntry = LogEntry Int Id Use Indicies deriving (Eq,Ord,Show)
 
+
+
 puse :: String -> Use
 puse "DEF" = Def
 puse "USE" = Use
 puse "loop_begin" = LoopStart
 puse "loop_end" = LoopEnd
+
 
 readUse :: String -> LogEntry
 readUse s =
@@ -52,7 +55,14 @@ readUse s =
     in
     LogEntry (read label) var (puse use) (map read idxs)
 
+data Dependency = Dependency
+    { depStmts :: (Int,Int)
+    , depType :: DependencyType
+    , depLevel = Int
+    } deriving (Eq, Ord, Show)
 
+--Identified by position and loop variable
+type LoopLevels = [Id]
 
 
 

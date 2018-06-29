@@ -31,3 +31,4 @@ executable hefl
     EflUtils
     EflLog
     LogParser
+    EflInterpreter
