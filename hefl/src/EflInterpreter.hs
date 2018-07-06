@@ -14,8 +14,8 @@ import Data.Foldable
 
 import qualified Data.Map as Map
 
-type ValueMap :: Map.Map (String, [Int]) -> Either Int Double
+--type ValueMap = Map.Map (String, [Int]) -> Either Int Double
 
-type IntM = State ValueMap
+--type IntM = State ValueMap
 
 

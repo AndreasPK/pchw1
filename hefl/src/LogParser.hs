@@ -38,9 +38,21 @@ type LogParser = Parsec () String -- ParsecT String String (State LoopLevel)
 
 type Indicies = [Int]
 data Use = Def | Use | LoopStart | LoopEnd deriving (Eq,Ord,Show)
-data LogEntry = LogEntry Int Id Use Indicies deriving (Eq,Ord,Show)
+data LogEntry = LogEntry
+    { logstmt :: Int
+    , logId :: Id
+    , logUse :: Use
+    , logIndicies :: [Int]
+    }
 
-
+findDeps :: [LogEntry] -> [LogEntry]
+findDeps logs =
+  where
+    go :: [LogEntry] -> M.Map (Id,Indicies) [LogEntry]
+    go [] m = m
+    go (l:logs) m =
+      where
+        key = (logId l, logIndicies l)
 
 puse :: String -> Use
 puse "DEF" = Def
@@ -58,7 +70,7 @@ readUse s =
 data Dependency = Dependency
     { depStmts :: (Int,Int)
     , depType :: DependencyType
-    , depLevel = Int
+    , depLevel :: Int
     } deriving (Eq, Ord, Show)
 
 --Identified by position and loop variable
