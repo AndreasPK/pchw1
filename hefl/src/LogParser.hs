@@ -7,13 +7,17 @@
 {--
     Parser for EFL IR format, white space senstive!
 -}
-module LogParser where
+-- (parseLogs, findDeps, LogEntry(..)
+-- , Dependency(..)    ) 
+module LogParser 
+where
 
 import EflTypes as ET
 
 import Data.Foldable
 import qualified Data.Map as M
 import Data.Maybe
+import Data.Semigroup
 import Control.Monad
 
 import Debug.Trace
@@ -43,16 +47,23 @@ data LogEntry = LogEntry
     , logId :: Id
     , logUse :: Use
     , logIndicies :: [Int]
-    }
+    } deriving (Eq,Ord,Show)
 
-findDeps :: [LogEntry] -> [LogEntry]
-findDeps logs =
+matchLogEntries :: [LogEntry] -> M.Map (Id,Indicies) [LogEntry]
+matchLogEntries [] = M.empty
+matchLogEntries (l:logs) 
+  | logUse l /= Def && logUse l /= Use
+  = fmap (l:) m
+  | otherwise
+  = M.insertWith comb key [l] m
   where
-    go :: [LogEntry] -> M.Map (Id,Indicies) [LogEntry]
-    go [] m = m
-    go (l:logs) m =
-      where
-        key = (logId l, logIndicies l)
+    m = matchLogEntries logs
+    comb [l1] old@(l2:_)
+      | l1 == l2
+      = old
+      | otherwise = l1:old
+    key :: (Id,Indicies)
+    key = (logId l, logIndicies l)
 
 puse :: String -> Use
 puse "DEF" = Def
@@ -60,9 +71,11 @@ puse "USE" = Use
 puse "loop_begin" = LoopStart
 puse "loop_end" = LoopEnd
 
+parseLogs :: String -> [LogEntry]
+parseLogs = map readLogLine . lines
 
-readUse :: String -> LogEntry
-readUse s =
+readLogLine :: String -> LogEntry
+readLogLine s =
     let (label:var:use:idxs) = words s
     in
     LogEntry (read label) var (puse use) (map read idxs)

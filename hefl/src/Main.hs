@@ -6,6 +6,7 @@ import Text.Megaparsec.Char
 import EflTypes
 import IrParser
 import EflLog
+import IrPrinter
 import System.Environment
 
 import Data.Map as M
@@ -23,5 +24,7 @@ main = do
   --print result
 
   let withLogging = addLogStatements parsedAst
+  let fortran_seq = pprEfl withLogging
+  writeFile "output/test.f90" fortran_seq
   --print withLogging
   return withLogging
