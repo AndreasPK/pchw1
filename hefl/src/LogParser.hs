@@ -102,24 +102,25 @@ updateLoopInfo entry@(LogEntry stmt _var use inds _)
     | use == LoopStart
     = do
         oldInfo <- get
-        let indices
-                | (e:_) <- oldInfo = stmt:loopIndicies e
-                | otherwise   = [stmt]
+        let (indices,iterations)
+                | (e:_) <- oldInfo
+                = (stmt:loopIndicies e, loopIterations e)
+                | otherwise   = ([stmt], [])
         let level = length indices
-        let newInfo = (LoopInfo level indices stmt (-1))
+        let newInfo = LoopInfo level indices stmt iterations
         put (newInfo:oldInfo)
     | use == LoopEnd
     = modify' (drop 1)
     | use == IterStart
     = do
         (li:ls) <- get
-        put $ li{loopIteration = head inds}:ls
+        put $ li{loopIterations = head inds:loopIterations li}:ls
     | use == IterEnd
     = return ()
 
-addLoopInfo :: Show a => [LogEntry a] -> [(LogEntry (Maybe LoopInfo))]
+addLoopInfo :: Show a => [LogEntry a] -> [LogEntry (Maybe LoopInfo)]
 addLoopInfo entries =
-    (flip evalState) ([]) $ mapM setInfo entries
+    flip evalState [] $ mapM setInfo entries
   where
     setInfo :: Show a => LogEntry a -> LoopState (LogEntry (Maybe LoopInfo))
     setInfo entry@(LogEntry stmt var use inds _) = do

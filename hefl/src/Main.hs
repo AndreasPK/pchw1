@@ -20,6 +20,9 @@ import Data.Either
 getLogEntries = do
   addLoopInfo . parseLogs <$> readFile "output\\test.f90.log"
 
+getInsts = 
+  mkStmtInst <$> getLogEntries
+
 --main :: IO ()
 main = do
   s <- readFile "input/test1.ir"

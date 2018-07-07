@@ -47,31 +47,57 @@ sourceOrder :: StmtInst -> StmtInst -> Ordering
 sourceOrder (StmtInst {stmtId = id1}) (StmtInst {stmtId = id2}) =
     compare id1 id2
 
+getDependencies :: [StmtInst] -> [Dependency]
+getDependencies insts = 
+  concatMap getDeps checkList
+    where
+  checkList = tails insts
+  getDeps :: [StmtInst] -> [Dependency]
+  getDeps (s:ss) =
+    mapMaybe (hasDataDep s) ss
+  getDeps [] = []
 
+getDistVector :: Maybe LoopInfo -> Maybe LoopInfo -> [Ordering]
+getDistVector Nothing _ = []
+getDistVector _  Nothing = []
+getDistVector (Just li1) (Just li2) =
+  take vecLength $ zipWith compare iters1 iters2
+  where
+    --Are these the same loops
+    ind1 = reverse . loopIndicies $ li1
+    ind2 = reverse . loopIndicies $ li2
+    --What iteration in which loop
+    iters1 = reverse . loopIterations $ li1
+    iters2 = reverse . loopIterations $ li2
+    vecLength = length . takeWhile id . zipWith (==) ind1 $ ind2
+    
+    
 --Assuming S1 gets executed before S2 does S2 depend on S1?
 hasDataDep :: StmtInst -> StmtInst -> Maybe Dependency
 hasDataDep (StmtInst id1 loop1 used1 def1)
            (StmtInst id2 loop2 used2 def2)
   | Just def1' <- def1
   , def1' `elem` used2
-  = Just $ Dependency (id1, id2) TRUE
+  = Just $ Dependency (id1, id2) TRUE distVec (fst def1')
   | Just def2' <- def2
   , def2' `elem` used1
-  = Just $ Dependency (id1, id2) ANTI
+  = Just $ Dependency (id1, id2) ANTI distVec (fst def2')
   | isJust def1
   , def1 == def2
-  = Just $ Dependency (id1, id2) OUT
+  = Just $ Dependency (id1, id2) OUT distVec (fst $ fromJust def1)
   | otherwise
   = Nothing
+  where
+    distVec = getDistVector loop1 loop2
 
-mkStmtInst :: [(LogEntry (Maybe LoopInfo))] -> [StmtInst]
+mkStmtInst :: [LogEntry (Maybe LoopInfo)] -> [StmtInst]
 mkStmtInst [] = []
 mkStmtInst (l:ls)
   | use /= Use && use /= Def
-  = mkStmtInsts ls
+  = mkStmtInst ls
   | otherwise
   = StmtInst (logstmt l) li varUses (listToMaybe varDefs) :
-    mkStmtInsts rest
+    mkStmtInst rest
     where
       use = LP.logUse l
       li = LP.loopInfo l :: Maybe LoopInfo

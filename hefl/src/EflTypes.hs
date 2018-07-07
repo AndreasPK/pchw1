@@ -50,6 +50,8 @@ data DependencyType = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
 data Dependency = Dependency
     { depStmts :: (Int,Int)
     , depType :: DependencyType
+    , distVector :: [Ordering]
+    , depVar :: Id
     } deriving (Eq, Ord, Show)
 
 
