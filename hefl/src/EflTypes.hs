@@ -29,7 +29,6 @@ data Entry
     } deriving (Eq,Show,Ord)
 
 data Type = INT | FLOAT deriving (Eq, Ord, Show)
-data DependencyType = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
 data DimType = IsArr | IsScalar deriving (Eq, Ord, Show)
 
 data ARR_SIZE
@@ -40,12 +39,18 @@ data ARR_SIZE
     deriving (Eq, Ord, Show)
 
 type Id = String
+type StatmentId = Int
 
 type SymbolMap = Map.Map String Entry
 
 -- | Loop depth
 type LoopLevel = Int
 
+data DependencyType = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
+data Dependency = Dependency
+    { depStmts :: (Int,Int)
+    , depType :: DependencyType
+    } deriving (Eq, Ord, Show)
 
 
 data Var = Var { --NVAR

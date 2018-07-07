@@ -1,15 +1,15 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveFunctor #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 {--
     Parser for EFL IR format, white space senstive!
 -}
 -- (parseLogs, findDeps, LogEntry(..)
--- , Dependency(..)    ) 
-module LogParser 
+-- , Dependency(..)    )
+module LogParser
 where
 
 import EflTypes as ET
@@ -29,31 +29,32 @@ import Text.Megaparsec.Char
 
 import Control.Monad.Combinators
 import Control.Monad.Trans.State.Strict
-import Control.Monad.State.Class
+--import Control.Monad.State.Class
 
 import Data.Char
 
 import Debug.Trace
 
-instance ShowErrorComponent () where
-    showErrorComponent = const ""
-
-type LogParser = Parsec () String -- ParsecT String String (State LoopLevel)
-
 type Indicies = [Int]
-data Use = Def | Use | LoopStart | LoopEnd deriving (Eq,Ord,Show)
-data LogEntry = LogEntry
+data Use
+    = Def | Use -- Variable access
+    | LoopStart | LoopEnd --Loop Statement
+    | IterStart | IterEnd --Start/end of iteration
+    deriving (Eq,Ord,Show)
+
+data LogEntry a = LogEntry
     { logstmt :: Int
     , logId :: Id
     , logUse :: Use
     , logIndicies :: [Int]
-    } deriving (Eq,Ord,Show)
+    , loopInfo :: a
+    } deriving (Eq,Ord,Show,Functor)
 
-matchLogEntries :: [LogEntry] -> M.Map (Id,Indicies) [LogEntry]
+matchLogEntries :: Ord a => [LogEntry a] -> M.Map (Id,Indicies) [LogEntry a]
 matchLogEntries [] = M.empty
-matchLogEntries (l:logs) 
+matchLogEntries (l:logs)
   | logUse l /= Def && logUse l /= Use
-  = fmap (l:) m
+  = m
   | otherwise
   = M.insertWith comb key [l] m
   where
@@ -70,26 +71,61 @@ puse "DEF" = Def
 puse "USE" = Use
 puse "loop_begin" = LoopStart
 puse "loop_end" = LoopEnd
+puse "iteration_start" = IterStart
+puse "iteration_end" = IterEnd
+puse other = error $ "Invalid use field:" ++ other
 
-parseLogs :: String -> [LogEntry]
+
+parseLogs :: String -> [LogEntry ()]
 parseLogs = map readLogLine . lines
 
-readLogLine :: String -> LogEntry
+readLogLine :: String -> LogEntry ()
 readLogLine s =
     let (label:var:use:idxs) = words s
     in
-    LogEntry (read label) var (puse use) (map read idxs)
+    LogEntry (read label) var (puse use) (map read idxs) ()
 
-data Dependency = Dependency
-    { depStmts :: (Int,Int)
-    , depType :: DependencyType
-    , depLevel :: Int
-    } deriving (Eq, Ord, Show)
+data LoopInfo = LoopInfo
+    {   loopLevel :: Int
+    ,   loopIndicies :: [Int] --inner first
+    ,   loopStatement :: Int
+    ,   loopIterations :: [Int] --inner first
+    }
+    deriving (Eq,Show,Ord)
 
---Identified by position and loop variable
-type LoopLevels = [Id]
+type LoopState = State [LoopInfo]
 
+updateLoopInfo :: Show a => LogEntry a -> LoopState()
+updateLoopInfo entry@(LogEntry _stmt _var use _inds _)
+    | use == Use || use == Def = return ()
+updateLoopInfo entry@(LogEntry stmt _var use inds _)
+    | use == LoopStart
+    = do
+        oldInfo <- get
+        let indices
+                | (e:_) <- oldInfo = stmt:loopIndicies e
+                | otherwise   = [stmt]
+        let level = length indices
+        let newInfo = (LoopInfo level indices stmt (-1))
+        put (newInfo:oldInfo)
+    | use == LoopEnd
+    = modify' (drop 1)
+    | use == IterStart
+    = do
+        (li:ls) <- get
+        put $ li{loopIteration = head inds}:ls
+    | use == IterEnd
+    = return ()
 
+addLoopInfo :: Show a => [LogEntry a] -> [(LogEntry (Maybe LoopInfo))]
+addLoopInfo entries =
+    (flip evalState) ([]) $ mapM setInfo entries
+  where
+    setInfo :: Show a => LogEntry a -> LoopState (LogEntry (Maybe LoopInfo))
+    setInfo entry@(LogEntry stmt var use inds _) = do
+        oldInfo <- get
+        updateLoopInfo entry
+        return $ fmap (listToMaybe . const oldInfo) entry
 
 
 

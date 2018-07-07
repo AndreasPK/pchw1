@@ -44,11 +44,11 @@ mkLogStatements s =
             nub (map (writeExpr " USE ") read ++ [s])
         If {} ->
             nub $ map (writeExpr " USE ") read ++ [s]
-        For {loopvar = lvEntry} ->
+        For {loopvar = lvEntry, body = body} ->
             --WriteExpr (write(*,*) '901 i loop begin')
             Write [mkStrLit $ lblNr ++ varName lvEntry ++ " loop_begin"] :
             nub (map (writeExpr " USE ") read) ++
-            [s, Write [mkStrLit $ lblNr ++ varName lvEntry ++ " loop_end"]]
+            [markIterations s, Write [mkStrLit $ lblNr ++ varName lvEntry ++ " loop_end"]]
         Write {} -> [s]
   where
     (nr, written, read) = getDepInfo s
@@ -59,11 +59,18 @@ mkLogStatements s =
     writeExpr :: String -> Var -> Statement
     writeExpr s v = Write $ mkStrLit (varInfo s v) : (indexExprs v)
 
-prependLogStatements :: Statement -> Statements
-prependLogStatements s =
-    mkLogStatements s
+    markIterations :: Statement -> Statement
+    markIterations s@(For{loopvar = entry, body = body}) =
+        s{body = (iteration_start:body) ++ [iteration_end]}
+      where
+        iteration_start =
+            Write [mkStrLit (lblNr ++ varName entry ++ " iteration_start ")
+                , mkVarExprFromEntry entry]
+        iteration_end =
+            Write [mkStrLit (lblNr ++ varName entry ++ " iteration_end ")
+                , mkVarExprFromEntry entry]
 
 addLogStatements :: Program -> Program
 addLogStatements prog@(Program {stmts = eflStmts}) =
-    let stmts = foldMap (updateStatements prependLogStatements) eflStmts
+    let stmts = foldMap (updateStatements mkLogStatements) eflStmts
     in prog {stmts = stmts}

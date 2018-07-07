@@ -32,3 +32,4 @@ executable hefl
     EflLog
     LogParser
     EflInterpreter
+    Deps

@@ -6,14 +6,19 @@ import Text.Megaparsec.Char
 import EflTypes
 import IrParser
 import EflLog
+import LogParser
+import Deps
 import IrPrinter
 import System.Environment
 
-import Data.Map as M
+import qualified Data.Map as M
 import Control.Monad.Trans.Reader
 import Control.Monad
 
 import Data.Either
+
+getLogEntries = do
+  addLoopInfo . parseLogs <$> readFile "output\\test.f90.log"
 
 --main :: IO ()
 main = do

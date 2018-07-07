@@ -11,3 +11,7 @@ import EflTypes as ET
 
 mkStrLit :: String -> Expr
 mkStrLit = StringLit
+
+mkVarExprFromEntry :: Entry -> Expr
+mkVarExprFromEntry entry =
+    VarExpr (Var (Just entry) [])
