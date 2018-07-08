@@ -39,18 +39,23 @@ data ARR_SIZE
     deriving (Eq, Ord, Show)
 
 type Id = String
-type StatmentId = Int
+
+--Statements MUST be ordered descending
+type StatementId = Int
 
 type SymbolMap = Map.Map String Entry
 
 -- | Loop depth
 type LoopLevel = Int
 
-data DependencyType = ANTI | OUT | TRUE deriving (Eq, Ord, Show)
+data DepLevel = DepLevel [Ordering] | Independent deriving (Eq,Ord,Show)
+
+data DependencyType = ANTI | OUT | TRUE | INPUT deriving (Eq, Ord, Show)
+
 data Dependency = Dependency
     { depStmts :: (Int,Int)
     , depType :: DependencyType
-    , distVector :: [Ordering]
+    , depLevel :: DepLevel
     , depVar :: Id
     } deriving (Eq, Ord, Show)
 

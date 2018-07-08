@@ -46,7 +46,7 @@ data LogEntry a = LogEntry
     { logstmt :: Int
     , logId :: Id
     , logUse :: Use
-    , logIndicies :: [Int]
+    , logIndicies :: [Int] --Iterations for each level of loop
     , loopInfo :: a
     } deriving (Eq,Ord,Show,Functor)
 
@@ -89,7 +89,7 @@ data LoopInfo = LoopInfo
     {   loopLevel :: Int
     ,   loopIndicies :: [Int] --inner first
     ,   loopStatement :: Int
-    ,   loopIterations :: [Int] --inner first
+    ,   loopIterations :: [Int] --current iteration vector, inner first
     }
     deriving (Eq,Show,Ord)
 
@@ -116,7 +116,8 @@ updateLoopInfo entry@(LogEntry stmt _var use inds _)
         (li:ls) <- get
         put $ li{loopIterations = head inds:loopIterations li}:ls
     | use == IterEnd
-    = return ()
+    = modify' (\(x:xs) -> x {loopIterations = drop 1 (loopIterations x)} : xs)
+
 
 addLoopInfo :: Show a => [LogEntry a] -> [LogEntry (Maybe LoopInfo)]
 addLoopInfo entries =

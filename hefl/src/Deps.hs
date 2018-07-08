@@ -10,6 +10,7 @@ where
 import EflTypes as ET
 import LogParser as LP
 
+import Prelude as P
 import Data.Bifunctor
 import Data.Foldable
 import Data.List
@@ -35,34 +36,54 @@ import qualified Data.Set as S
 
 import Debug.Trace
 
+
+type IndexedVar = (Id,[Int])
 data StmtInst = StmtInst
-    { stmtId :: StatmentId
+    { stmtId :: StatementId
     , loopInfo :: Maybe LoopInfo --looplevel/id
-    , varUsed :: [(Id,[Int])] --vars used and indices
-    , varDef :: Maybe (Id,[Int]) --var written
+    , varUsed :: [IndexedVar] --vars used and indices
+    , varDef :: Maybe IndexedVar --var written
     }
     deriving (Eq,Ord,Show)
 
-sourceOrder :: StmtInst -> StmtInst -> Ordering
-sourceOrder (StmtInst {stmtId = id1}) (StmtInst {stmtId = id2}) =
-    compare id1 id2
 
 getDependencies :: [StmtInst] -> [Dependency]
-getDependencies insts = 
+getDependencies insts =
   concatMap getDeps checkList
     where
   checkList = tails insts
   getDeps :: [StmtInst] -> [Dependency]
   getDeps (s:ss) =
-    mapMaybe (hasDataDep s) ss
+    concatMap (hasDataDep s) $ filterCover S.empty ss
   getDeps [] = []
 
-getDistVector :: Maybe LoopInfo -> Maybe LoopInfo -> [Ordering]
-getDistVector Nothing _ = []
-getDistVector _  Nothing = []
-getDistVector (Just li1) (Just li2) =
-  take vecLength $ zipWith compare iters1 iters2
+  --(StmtInst {stmtId = id1, varDef = def, varUsed = use})
+  filterCover :: S.Set IndexedVar -> [StmtInst] -> [StmtInst]
+  filterCover _       [] = []
+  filterCover covered (inst@StmtInst { varUsed = used, varDef = def } : insts)
+    = --traceShow covered $
+      filterCovered inst : filterCover covered' insts
+    where
+      --A assignments coveres all future dependencies
+      covered' = foldl' (flip S.insert) covered (maybeToList def)
+      --Remove covered variables from the instance information
+      filterCovered inst@StmtInst { varUsed = used, varDef = def } =
+        inst { varUsed = filter (`S.member` covered) used
+             , varDef = maybe Nothing (\x -> if S.member x covered then Nothing else Just x) def}
+
+
+getDistVector :: StatementId -> StatementId -> Maybe LoopInfo -> Maybe LoopInfo -> DepLevel
+getDistVector _ _ Nothing _ = Independent
+getDistVector _ _ _ Nothing = Independent
+getDistVector s1 s2 (Just li1) (Just li2) =
+  checkSourceOrder . take vecLength $ zipWith compare iters1 $ iters2
   where
+    --consider source order
+    checkSourceOrder xs
+      | all (==P.EQ) xs
+      , s1 < s2
+      = Independent
+      | otherwise = DepLevel xs
     --Are these the same loops
     ind1 = reverse . loopIndicies $ li1
     ind2 = reverse . loopIndicies $ li2
@@ -70,25 +91,37 @@ getDistVector (Just li1) (Just li2) =
     iters1 = reverse . loopIterations $ li1
     iters2 = reverse . loopIterations $ li2
     vecLength = length . takeWhile id . zipWith (==) ind1 $ ind2
-    
-    
+
+
 --Assuming S1 gets executed before S2 does S2 depend on S1?
-hasDataDep :: StmtInst -> StmtInst -> Maybe Dependency
+hasDataDep :: StmtInst -> StmtInst -> [Dependency]
 hasDataDep (StmtInst id1 loop1 used1 def1)
            (StmtInst id2 loop2 used2 def2)
-  | Just def1' <- def1
-  , def1' `elem` used2
-  = Just $ Dependency (id1, id2) TRUE distVec (fst def1')
-  | Just def2' <- def2
-  , def2' `elem` used1
-  = Just $ Dependency (id1, id2) ANTI distVec (fst def2')
-  | isJust def1
-  , def1 == def2
-  = Just $ Dependency (id1, id2) OUT distVec (fst $ fromJust def1)
-  | otherwise
-  = Nothing
+  = catMaybes $ [trueDep, outDep, antiDep] -- <> inputDeps
   where
-    distVec = getDistVector loop1 loop2
+    distVec = getDistVector id1 id2 loop1 loop2
+    trueDep
+      | Just def1' <- def1
+      , def1' `elem` used2
+      = Just $ Dependency (id1, id2) TRUE distVec (fst def1')
+      | otherwise = Nothing
+    antiDep
+      | Just def2' <- def2
+      , def2' `elem` used1
+      = Just $ Dependency (id1, id2) ANTI distVec (fst def2')
+      | otherwise = Nothing
+    outDep
+      | isJust def2
+      , def1 == def2
+      = Just $ Dependency (id1, id2) OUT distVec (fst $ fromJust def1)
+      | otherwise = Nothing
+    inputDeps =
+      let vars1 = S.fromList . map fst $ used1
+          dep id
+            | S.member id vars1
+            = Just $ Dependency (id1, id2) INPUT distVec id
+            | otherwise = Nothing
+      in map (dep . fst) used2
 
 mkStmtInst :: [LogEntry (Maybe LoopInfo)] -> [StmtInst]
 mkStmtInst [] = []
