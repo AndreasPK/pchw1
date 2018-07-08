@@ -33,3 +33,4 @@ executable hefl
     LogParser
     EflInterpreter
     Deps
+    Para

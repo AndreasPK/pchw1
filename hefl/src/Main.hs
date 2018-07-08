@@ -7,21 +7,34 @@ import EflTypes
 import IrParser
 import EflLog
 import LogParser
-import Deps
+import Deps (mkStmtInst, getDependencies, getDepEdges)
+import Para
 import IrPrinter
 import System.Environment
 
+import qualified Data.Set as S
 import qualified Data.Map as M
+import Data.Text.Prettyprint.Doc
+
 import Control.Monad.Trans.Reader
 import Control.Monad
 
 import Data.Either
+import Data.List
 
 getLogEntries = do
   addLoopInfo . parseLogs <$> readFile "output\\test.f90.log"
 
-getInsts = 
+getInsts =
   mkStmtInst <$> getLogEntries
+
+getDeps = do
+  logEntries <- getLogEntries
+  let statements = S.toList . S.fromList . map logstmt $ logEntries
+  let deps = getDependencies . mkStmtInst $ logEntries
+  let edges = getDepEdges deps
+  let depGraph = (statements, edges)
+  return depGraph
 
 --main :: IO ()
 main = do

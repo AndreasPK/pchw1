@@ -87,7 +87,7 @@ readLogLine s =
 
 data LoopInfo = LoopInfo
     {   loopLevel :: Int
-    ,   loopIndicies :: [Int] --inner first
+    ,   loopIds :: [Int] --inner first
     ,   loopStatement :: Int
     ,   loopIterations :: [Int] --current iteration vector, inner first
     }
@@ -104,7 +104,7 @@ updateLoopInfo entry@(LogEntry stmt _var use inds _)
         oldInfo <- get
         let (indices,iterations)
                 | (e:_) <- oldInfo
-                = (stmt:loopIndicies e, loopIterations e)
+                = (stmt:loopIds e, loopIterations e)
                 | otherwise   = ([stmt], [])
         let level = length indices
         let newInfo = LoopInfo level indices stmt iterations

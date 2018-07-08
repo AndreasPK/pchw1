@@ -1,15 +1,22 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+
+{-# OPTIONS_GHC -O2 #-}
 
 
 
 module EflTypes where
 
+import Data.Text.Prettyprint.Doc
+
 import qualified Data.Map as Map
 import Data.Foldable
 import Control.Monad
 import Control.Monad.Identity
+
 
 import Debug.Trace
 
@@ -52,12 +59,34 @@ data DepLevel = DepLevel [Ordering] | Independent deriving (Eq,Ord,Show)
 
 data DependencyType = ANTI | OUT | TRUE | INPUT deriving (Eq, Ord, Show)
 
-data Dependency = Dependency
+data Dependency a = Dependency
     { depStmts :: (Int,Int)
     , depType :: DependencyType
     , depLevel :: DepLevel
     , depVar :: Id
+    , depExtra :: a
     } deriving (Eq, Ord, Show)
+
+data DepEdge = DepEdge
+  { edgeFrom :: StatementId
+  , edgeTo :: StatementId
+  , edges :: [(DependencyType, Int)]
+  }
+  deriving (Eq,Ord,Show)
+
+instance Pretty DepEdge where
+  pretty (DepEdge from to es) =
+    "s" <> pretty from <> " -> " <> "s" <> pretty to <>
+      "[label = \"" <> pprEdges es <> "\" ];"
+    where
+      pprType ANTI = "A"
+      pprType OUT = "O"
+      pprType TRUE = "T"
+      pprType INPUT = "I"
+      pprEdges [] = mempty
+      pprEdges ((t,l):es) = pprType t <> pretty l <+> pprEdges es
+
+type DepGraph = ([Int], [DepEdge])
 
 
 data Var = Var { --NVAR
