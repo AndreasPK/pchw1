@@ -36,16 +36,13 @@ import qualified Data.Set as S
 
 import Debug.Trace
 
-
-type IndexedVar = (Id,[Int])
 data StmtInst = StmtInst
     { stmtId :: StatementId
     , loopInfo :: Maybe LoopInfo --looplevel/id
-    , varUsed :: [IndexedVar] --vars used and indices
-    , varDef :: Maybe IndexedVar --var written
+    , varUsed :: [(Id,[Int])] --vars used and indices
+    , varDef :: Maybe (Id,[Int]) --var written
     }
     deriving (Eq,Ord,Show)
-
 
 getDependencies :: [StmtInst] -> [Dependency]
 getDependencies insts =
@@ -54,22 +51,22 @@ getDependencies insts =
   checkList = tails insts
   getDeps :: [StmtInst] -> [Dependency]
   getDeps (s:ss) =
-    concatMap (hasDataDep s) $ filterCover S.empty ss
+    filterCover (S.empty) $
+    concatMap (hasDataDep s) ss
   getDeps [] = []
 
   --(StmtInst {stmtId = id1, varDef = def, varUsed = use})
-  filterCover :: S.Set IndexedVar -> [StmtInst] -> [StmtInst]
+  filterCover :: S.Set Id -> [Dependency] -> [Dependency]
   filterCover _       [] = []
-  filterCover covered (inst@StmtInst { varUsed = used, varDef = def } : insts)
-    = --traceShow covered $
-      filterCovered inst : filterCover covered' insts
-    where
-      --A assignments coveres all future dependencies
-      covered' = foldl' (flip S.insert) covered (maybeToList def)
-      --Remove covered variables from the instance information
-      filterCovered inst@StmtInst { varUsed = used, varDef = def } =
-        inst { varUsed = filter (`S.member` covered) used
-             , varDef = maybe Nothing (\x -> if S.member x covered then Nothing else Just x) def}
+  filterCover covered (dep@Dependency { depVar = depVar, depType = depType } : deps)
+    --Already covered
+    | S.member depVar covered
+    = filterCover covered deps
+    --If there is any anti or out dependency then that one covers any further dependencies
+    | depType == ANTI || depType == OUT
+    = dep : filterCover (S.insert depVar covered) deps
+    | otherwise
+    = dep : filterCover covered deps
 
 
 getDistVector :: StatementId -> StatementId -> Maybe LoopInfo -> Maybe LoopInfo -> DepLevel
