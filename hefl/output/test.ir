@@ -1,0 +1,191 @@
+vec_example
+a	FLOAT	2	1	20	1	20
+b	FLOAT	2	1	20	1	20
+c	FLOAT	2	1	20	1	20
+d	FLOAT	2	1	20	1	20
+i	INT
+j	INT
+STMTLIST
+	FOR @901
+		ENTRY i
+		EXPR
+		INT 2
+		EXPR
+		BINOP -
+			EXPR
+			INT 20
+			EXPR
+			INT 1
+		STMTLIST
+			FOR @902
+				ENTRY j
+				EXPR
+				INT 3
+				EXPR
+				BINOP -
+					EXPR
+					INT 20
+					EXPR
+					INT 4
+				STMTLIST
+					ASSIGN @001
+						VAR
+							ENTRY c
+							EXPRLIST
+								EXPR
+								VAR
+									ENTRY i
+								EXPR
+								VAR
+									ENTRY j
+							/EXPRLIST
+						EXPR
+						BINOP *
+							EXPR
+							VAR
+								ENTRY a
+								EXPRLIST
+									EXPR
+									VAR
+										ENTRY i
+									EXPR
+									VAR
+										ENTRY j
+								/EXPRLIST
+							EXPR
+							VAR
+								ENTRY b
+								EXPRLIST
+									EXPR
+									VAR
+										ENTRY i
+									EXPR
+									VAR
+										ENTRY j
+								/EXPRLIST
+					ASSIGN @002
+						VAR
+							ENTRY a
+							EXPRLIST
+								EXPR
+								BINOP +
+									EXPR
+									VAR
+										ENTRY i
+									EXPR
+									INT 1
+								EXPR
+								BINOP +
+									EXPR
+									VAR
+										ENTRY j
+									EXPR
+									INT 1
+							/EXPRLIST
+						EXPR
+						BINOP +
+							EXPR
+							BINOP /
+								EXPR
+								VAR
+									ENTRY c
+									EXPRLIST
+										EXPR
+										VAR
+											ENTRY i
+										EXPR
+										BINOP -
+											EXPR
+											VAR
+												ENTRY j
+											EXPR
+											INT 2
+									/EXPRLIST
+								EXPR
+								FLOAT 2.000000
+							EXPR
+							BINOP *
+								EXPR
+								VAR
+									ENTRY c
+									EXPRLIST
+										EXPR
+										BINOP -
+											EXPR
+											VAR
+												ENTRY i
+											EXPR
+											INT 1
+										EXPR
+										VAR
+											ENTRY j
+									/EXPRLIST
+								EXPR
+								FLOAT 3.000000
+					ASSIGN @003
+						VAR
+							ENTRY d
+							EXPRLIST
+								EXPR
+								VAR
+									ENTRY i
+								EXPR
+								VAR
+									ENTRY j
+							/EXPRLIST
+						EXPR
+						BINOP +
+							EXPR
+							VAR
+								ENTRY d
+								EXPRLIST
+									EXPR
+									BINOP -
+										EXPR
+										VAR
+											ENTRY i
+										EXPR
+										INT 1
+									EXPR
+									BINOP -
+										EXPR
+										VAR
+											ENTRY j
+										EXPR
+										INT 1
+								/EXPRLIST
+							EXPR
+							FLOAT 1.000000
+					ASSIGN @004
+						VAR
+							ENTRY b
+							EXPRLIST
+								EXPR
+								VAR
+									ENTRY i
+								EXPR
+								BINOP +
+									EXPR
+									VAR
+										ENTRY j
+									EXPR
+									INT 4
+							/EXPRLIST
+						EXPR
+						BINOP -
+							EXPR
+							VAR
+								ENTRY d
+								EXPRLIST
+									EXPR
+									VAR
+										ENTRY i
+									EXPR
+									VAR
+										ENTRY j
+								/EXPRLIST
+							EXPR
+							FLOAT 1.000000
+				/STMTLIST
+		/STMTLIST
+/STMTLIST

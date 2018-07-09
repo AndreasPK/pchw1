@@ -23,6 +23,9 @@ type PrintState = Reader Int
 pprSymbols :: [Entry] -> Doc a
 pprSymbols syms = vsep $ map (pprEntry) syms
 
+instance Pretty Entry where
+    pretty = pprEntry
+
 pprEntry :: Entry -> Doc a
 pprEntry (ENTRY name t dim marrSize) =
     pprType t <> pprArrDims marrSize <+> "::" <+> pretty name
@@ -88,6 +91,8 @@ pprExpr (OpExpr op e1 me1)
     = pretty e1 <> pprOp op <> pretty e2
     | Nothing <- me1
     = pprOp op <> pretty e1
+pprExpr (VecExpr e1 e2) = pretty e1 <> ":" <> pretty e2
+
 
 pprLabel :: Int -> PrintState (Doc a)
 pprLabel n = do
@@ -130,10 +135,15 @@ pprStatementM (Write exprs) = do
     withoutLabel $  "write(*,*) " <>
                     hsep (punctuate comma (map pretty exprs)) <> hardline
 
-
+instance Pretty Statement where
+    pretty = pprStatement
 --Print with indent zero
 pprStatement :: Statement -> Doc a
 pprStatement s = runReader (pprStatementM s) 0
+
+--Print with indent
+pprStatement' :: Statement -> Int -> Doc a
+pprStatement' s indent = runReader (pprStatementM s) indent
 
 pprProgram :: Program -> Doc a
 pprProgram (Program name syms stmts) =

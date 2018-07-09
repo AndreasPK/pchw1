@@ -16,11 +16,43 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.Text.Prettyprint.Doc
 
+import Control.DeepSeq
 import Control.Monad.Trans.Reader
 import Control.Monad
 
 import Data.Either
 import Data.List
+
+import Debug.Trace
+import Data.Binary
+
+instance Binary Entry
+instance Binary Type
+instance Binary Var
+instance Binary Expr
+instance Binary Statement
+instance Binary ARR_SIZE
+instance Binary DimType
+instance Binary DepLevel
+instance Binary DependencyType
+instance Binary Op
+instance Binary Program
+instance Binary DepEdge
+
+instance NFData Entry
+instance NFData Type
+instance NFData Var
+instance NFData Expr
+instance NFData Statement
+instance NFData ARR_SIZE
+instance NFData DimType
+instance NFData DepLevel
+instance NFData DependencyType
+instance NFData Op
+instance NFData Program
+instance NFData DepEdge
+--instance NFData CMState
+
 
 getLogEntries = do
   addLoopInfo . parseLogs <$> readFile "output\\test.f90.log"
@@ -36,9 +68,22 @@ getDeps = do
   let depGraph = (statements, edges)
   return depGraph
 
---main :: IO ()
+getIR = buildLogIr
+
 main = do
-  s <- readFile "input/test1.ir"
+  ir <- buildLogIr
+  deps <- getDeps
+
+  --encodeFile "cache.bin" (ir,deps)
+  (ir, deps) <- decodeFile "cache.bin" :: IO (Program, DepGraph)
+
+  traceM "Vectorizing"
+  let state = vectorizeProgram ir deps
+  return state
+
+
+buildLogIr = do
+  s <- readFile "output/test.ir"
   let readerM = runParserT program "Foo" s :: Reader SymbolMap (Either (ParseError Char String) Program)
   let result = runReader readerM M.empty :: (Either (ParseError Char String) Program)
   let parsedAst = fromRight (error "Failed to parse program") result :: Program

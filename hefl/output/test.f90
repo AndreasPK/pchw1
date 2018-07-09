@@ -2,87 +2,48 @@
 ! 185.A64 SS 2018 A. Klebinger
 ! Generated from EFL IR
 
-program jacobi
+program vec_example
 
-real, dimension(1:10, 1:10) :: u
-real, dimension(1:10, 1:10) :: f
-real, dimension(1:10, 1:10) :: uhelp
-real :: omega
-real :: diff
-real :: norm
+real, dimension(1:20, 1:20) :: a
+real, dimension(1:20, 1:20) :: b
+real, dimension(1:20, 1:20) :: c
+real, dimension(1:20, 1:20) :: d
 integer :: i
 integer :: j
-integer :: iter
 
-    write(*,*) '001 omega DEF '
-001 omega = 0.500000
-    write(*,*) '901 iter loop_begin'
-901  do iter = 1 , 4 ,1
-        write(*,*) '901 iter iteration_start ', iter
-        write(*,*) '902 i loop_begin'
-902      do i = 2 , 10-1 ,1
-            write(*,*) '902 i iteration_start ', i
-            write(*,*) '903 j loop_begin'
-903          do j = 2 , 10-1 ,1
-                write(*,*) '903 j iteration_start ', j
-                write(*,*) '002 uhelp DEF ', i, j
-                write(*,*) '002 omega USE '
-                write(*,*) '002 u USE ', i, j
-                write(*,*) '002 i USE '
-                write(*,*) '002 j USE '
-                write(*,*) '002 f USE ', i, j
-                write(*,*) '002 u USE ', i-1, j
-                write(*,*) '002 u USE ', i+1, j
-                write(*,*) '002 u USE ', i, j+1
-                write(*,*) '002 u USE ', i, j-1
-002             uhelp(i, j) = (1.000000-omega)*u(i, j)+omega*0.250000*(f(i, j)+u(i-1, j)+u(i+1, j)+u(i, j+1)+u(i, j-1))
-                write(*,*) '903 j iteration_end ', j
-            end do
-            write(*,*) '903 j loop_end'
-            write(*,*) '902 i iteration_end ', i
+    write(*,*) '901 i loop_begin'
+901  do i = 2 , 20-1 ,1
+        write(*,*) '901 i iteration_start ', i
+        write(*,*) '902 j loop_begin'
+902      do j = 3 , 20-4 ,1
+            write(*,*) '902 j iteration_start ', j
+            write(*,*) '001 c DEF ', i, j
+            write(*,*) '001 a USE ', i, j
+            write(*,*) '001 i USE '
+            write(*,*) '001 j USE '
+            write(*,*) '001 b USE ', i, j
+001         c(i, j) = a(i, j)*b(i, j)
+            write(*,*) '002 a DEF ', i+1, j+1
+            write(*,*) '002 c USE ', i, j-2
+            write(*,*) '002 i USE '
+            write(*,*) '002 j USE '
+            write(*,*) '002 c USE ', i-1, j
+002         a(i+1, j+1) = c(i, j-2)/2.000000+c(i-1, j)*3.000000
+            write(*,*) '003 d DEF ', i, j
+            write(*,*) '003 d USE ', i-1, j-1
+            write(*,*) '003 i USE '
+            write(*,*) '003 j USE '
+003         d(i, j) = d(i-1, j-1)+1.000000
+            write(*,*) '004 b DEF ', i, j+4
+            write(*,*) '004 d USE ', i, j
+            write(*,*) '004 i USE '
+            write(*,*) '004 j USE '
+004         b(i, j+4) = d(i, j)-1.000000
+            write(*,*) '902 j iteration_end ', j
         end do
-        write(*,*) '902 i loop_end'
-        write(*,*) '904 i loop_begin'
-904      do i = 2 , 10-1 ,1
-            write(*,*) '904 i iteration_start ', i
-            write(*,*) '905 j loop_begin'
-905          do j = 2 , 10-1 ,1
-                write(*,*) '905 j iteration_start ', j
-                write(*,*) '003 diff DEF '
-                write(*,*) '003 uhelp USE ', i, j
-                write(*,*) '003 i USE '
-                write(*,*) '003 j USE '
-                write(*,*) '003 u USE ', i, j
-003             diff = uhelp(i, j)-u(i, j)
-                write(*,*) '004 norm DEF '
-                write(*,*) '004 norm USE '
-                write(*,*) '004 diff USE '
-004             norm = norm+diff*diff
-                write(*,*) '905 j iteration_end ', j
-            end do
-            write(*,*) '905 j loop_end'
-            write(*,*) '904 i iteration_end ', i
-        end do
-        write(*,*) '904 i loop_end'
-        write(*,*) '906 i loop_begin'
-906      do i = 1 , 10 ,1
-            write(*,*) '906 i iteration_start ', i
-            write(*,*) '907 j loop_begin'
-907          do j = 1 , 10 ,1
-                write(*,*) '907 j iteration_start ', j
-                write(*,*) '005 u DEF ', i, j
-                write(*,*) '005 uhelp USE ', i, j
-                write(*,*) '005 i USE '
-                write(*,*) '005 j USE '
-005             u(i, j) = uhelp(i, j)
-                write(*,*) '907 j iteration_end ', j
-            end do
-            write(*,*) '907 j loop_end'
-            write(*,*) '906 i iteration_end ', i
-        end do
-        write(*,*) '906 i loop_end'
-        write(*,*) '901 iter iteration_end ', iter
+        write(*,*) '902 j loop_end'
+        write(*,*) '901 i iteration_end ', i
     end do
-    write(*,*) '901 iter loop_end'
+    write(*,*) '901 i loop_end'
 
-end program jacobi
+end program vec_example

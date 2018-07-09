@@ -2,6 +2,8 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 
 
 {-# OPTIONS_GHC -O2 #-}
@@ -16,7 +18,9 @@ import qualified Data.Map as Map
 import Data.Foldable
 import Control.Monad
 import Control.Monad.Identity
+import GHC.Generics
 
+import Data.Binary
 
 import Debug.Trace
 
@@ -33,17 +37,17 @@ data Entry
       varType :: Type,
       varDim :: DimType,
       varArrSize :: (Maybe ARR_SIZE)
-    } deriving (Eq,Show,Ord)
+    } deriving (Eq,Show,Ord, Generic)
 
-data Type = INT | FLOAT deriving (Eq, Ord, Show)
-data DimType = IsArr | IsScalar deriving (Eq, Ord, Show)
+data Type = INT | FLOAT deriving (Eq, Ord, Show, Generic)
+data DimType = IsArr | IsScalar deriving (Eq, Ord, Show, Generic)
 
 data ARR_SIZE
     = ARR_SIZE
     { aranks :: Int
     , ranges :: [(Int,Int)]
     }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 type Id = String
 
@@ -55,9 +59,9 @@ type SymbolMap = Map.Map String Entry
 -- | Loop depth
 type LoopLevel = Int
 
-data DepLevel = DepLevel [Ordering] | Independent deriving (Eq,Ord,Show)
+data DepLevel = DepLevel [Ordering] | Independent deriving (Eq,Ord,Show, Generic)
 
-data DependencyType = ANTI | OUT | TRUE | INPUT deriving (Eq, Ord, Show)
+data DependencyType = ANTI | OUT | TRUE | INPUT deriving (Eq, Ord, Show, Generic)
 
 data Dependency a = Dependency
     { depStmts :: (Int,Int)
@@ -72,7 +76,7 @@ data DepEdge = DepEdge
   , edgeTo :: StatementId
   , edges :: [(DependencyType, Int)]
   }
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show, Generic)
 
 instance Pretty DepEdge where
   pretty (DepEdge from to es) =
@@ -92,7 +96,7 @@ type DepGraph = ([Int], [DepEdge])
 data Var = Var { --NVAR
     entry :: Maybe Entry,
     indexExprs :: [Expr] }
-    deriving (Eq,Show,Ord)
+    deriving (Eq,Show,Ord, Generic)
 
 getVarName :: Var -> Id
 getVarName (Var (Just e) _) = varName e
@@ -117,15 +121,15 @@ data Statement
         , step :: Expr
         , body :: Statements
         }
-    | Write [Expr]
-    deriving (Eq, Ord, Show)
+    | Write [Expr] --IR ONLY
+    deriving (Eq, Ord, Show, Generic)
 
 data Program
     = Program
     { name :: String
     , symbols :: [Entry]
     , stmts :: Statements }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 data Op
     = PLUS
@@ -141,7 +145,7 @@ data Op
     | AND
     | OR
     | NOT
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 data Expr
     = FloatLit String
@@ -153,7 +157,8 @@ data Expr
     { exprOp :: Op
     , arg1 :: Expr
     , arg2 :: Maybe Expr }
-    deriving (Eq, Ord, Show)
+    | VecExpr Expr Expr -- ^ IR ONLY, from:to
+    deriving (Eq, Ord, Show, Generic)
 
 foldExpr :: (b -> Expr -> b) -> b -> Expr -> b
 foldExpr f z e@(FloatLit {}) = f z e
@@ -164,19 +169,41 @@ foldExpr f z e@(ParensExpr e') = foldExpr f (f z e) e'
 foldExpr f z e@(OpExpr _op e1 me2) =
     let z' = (foldExpr f (f z e) e1)
     in maybe z' (foldExpr f z') me2
+foldExpr f z e@(VecExpr e1 e2) =
+    let z' = (foldExpr f (f z e) e1)
+    in foldExpr f z' e2
 
 foldMapExpr :: (Expr -> [b]) -> Expr -> [b]
 foldMapExpr f e = foldExpr (\l e -> l ++ f e) [] e
+
+mapExpr :: (Expr -> Expr) -> Expr -> Expr
+mapExpr f e@(FloatLit {}) = f e
+mapExpr f e@(IntLit {}) = f e
+mapExpr f e@(StringLit {}) = f e
+mapExpr f e@(VarExpr (Var entry idxs)) = f . VarExpr . Var entry $ map (mapExpr f) idxs
+mapExpr f e@(ParensExpr e') = f (ParensExpr $ mapExpr f e')
+mapExpr f e@(OpExpr op e1 e2) =
+    let e1' = mapExpr f e1
+        e2' = fmap (mapExpr f) e2
+    in f (OpExpr op e1' e2')
+mapExpr f e@(VecExpr e1 e2) =
+    let e1' = mapExpr f e1
+        e2' = mapExpr f e2
+    in f (VecExpr e1' e2')
 
 foldStatements :: (b -> Statement -> b) -> b -> Statement -> b
 foldStatements f z stmt@(Assign {}) =
     f z stmt
 foldStatements f z stmt@(If _ _ ts fs) =
-    foldl' f (f z stmt) (ts ++ fs)
+    foldl' (foldStatements f) (f z stmt) (ts ++ fs)
 foldStatements f z stmt@(For {body = bodyStmts}) =
-    foldl' f (f z stmt) bodyStmts
+    let z' = f z stmt
+    in foldl' (foldStatements f) z' bodyStmts
 foldStatements f z stmt@(Write {}) =
     f z stmt
+
+isAssignment Assign {} = True
+isAssignment _ = False
 
 --Replace occurrences of statemens with a list of statements
 updateStatementsM :: Monad m => (Statement -> m Statements) -> Statement -> m Statements

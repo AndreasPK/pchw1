@@ -24,6 +24,9 @@ executable hefl
                       ,parser-combinators
                       ,mtl
                       ,prettyprinter
+                      ,safe
+                      ,binary
+                      ,deepseq
   other-modules:
     EflTypes
     IrParser
