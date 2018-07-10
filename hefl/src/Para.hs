@@ -95,7 +95,7 @@ instance (Pretty a1,Pretty a2,Pretty a3,Pretty a4) => Pretty (a1,a2,a3,a4) where
         "(" <> pretty e1 <> "," <> pretty e2 <> "," <>
             pretty e3 <> "," <> pretty e4 <> ")"
 
-
+-- Get loops for statement, outer first
 getLoops :: Program -> StatementId -> Maybe [Statement]
 getLoops Program {stmts = stmts} id =
     listToMaybe $ mapMaybe go stmts
@@ -170,33 +170,53 @@ vectorCode statements level = do
 
     mapM_ (generateSCC level) scc
 
+checkLoopInfo :: Monad m => [[LoopGenInfo]] -> m Bool
+checkLoopInfo (li:lis) =
+    let x = map (\i2 -> head li == head i2) $ lis
+    in if (and x)
+        then return True
+        else return False --(error $ "Missmatched loops not handled:" ++ show (pretty $ li:lis))
 
 generateSCC :: LoopLevel -> G.SCC StatementId -> CM ()
 generateSCC level (G.AcyclicSCC stmt) = generateStatement level stmt
 generateSCC level (G.CyclicSCC stmts) = do
-    loopInfos <- map (fromMaybe $ error "Expected loop information") <$>  mapM getLoopInfos stmts
-    when (not $ all (== head loopInfos) loopInfos) (error "Missmatched loops not handled")
+    allLoopInfos <- map (drop level) . catMaybes <$> mapM getLoopInfos stmts
+    traceM . show $ "Generate SCC - Statements:" <> pretty stmts <> hardline <>
+                    "level:" <> pretty level <> hardline <>
+                    "loopInfo:" <> pretty allLoopInfos
 
-    --We already dealth with <level> loops
-    let loop = headNote "Expected a loop for circular dependency" .
-               drop level .
-               headNote "Expected a loop for circular dependency" $
-               loopInfos
-    -- get Bounds
-    let lb = lilb loop
-    let ub = liub loop
-    let lvar = livar loop
+    matched <- checkLoopInfo allLoopInfos
+    case matched of
+        True -> do
+            --We already dealth with <level> loops so get the outermost loop of this level
+            let loop = headNote "Expected a loop for circular dependency" .
+                    drop level .
+                    headNote "Expected a loop for circular dependency" $
+                    allLoopInfos
+            generateMatchedLoops level stmts loop
+        False -> do
+            generateUnmatchedLoops
 
+
+generateMatchedLoops :: LoopLevel -> [StatementId] -> LoopGenInfo -> CM ()
+generateMatchedLoops level stmts loopInfo = do
     -- genLoopHead
-    let loopHead = runReader (pprForHead loop) (level*4)
+    let loopHead = runReader (pprForHead loopInfo) (level*4)
     addCode loopHead
-
+    --Generate statements
     vectorCode stmts (level+1)
-
-
     -- genLoopTail
     let loopTail = runReader (withoutLabel $ "end do" <> hardline) (level*4)
     addCode loopTail
+
+generateUnmatchedLoops :: LoopLevel -> [StatementId] -> [LoopGenInfo] -> CM ()
+generateUnmatchedLoops level stmts loopInfo = do
+    traceM "unmatched"
+
+
+
+
+    undefined
 
 pprForHead :: LoopGenInfo -> PrintState (Doc a)
 pprForHead (lb,ub,step,var) = do

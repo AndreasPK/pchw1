@@ -11,6 +11,8 @@ import Deps (mkStmtInst, getDependencies, getDepEdges)
 import Para
 import IrPrinter
 import System.Environment
+import System.IO.Unsafe
+import System.Exit
 
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -20,11 +22,14 @@ import Control.DeepSeq
 import Control.Monad.Trans.Reader
 import Control.Monad
 
+import Data.Maybe
 import Data.Either
 import Data.List
 
 import Debug.Trace
 import Data.Binary
+
+import Safe
 
 instance Binary Entry
 instance Binary Type
@@ -69,28 +74,62 @@ getDeps = do
   return depGraph
 
 getIR = buildLogIr
+data Mode = BuildLogEfl | Par
+
+showUsage :: a
+showUsage =
+  unsafePerformIO $ die $
+    "\n\tInvalid arguments!" ++
+    "\n\t\tUsage: \t<-log|-par> <file>\n\n"++
+    "\teg:" ++
+    "\t./hefl -log input/test.ir\n"
+
+getMode :: [String] -> Mode
+getMode args
+  | "-log" `elem` args = BuildLogEfl
+  | "-par" `elem` args = Par
+  | otherwise = showUsage
+
+mkPar mFile = do
+  putStrLn "Vectorizing"
+  ir <- getIr $ fromMaybe "test1.ir" mFile
+  deps <- getDeps
+  let state = vectorizeProgram ir deps
+  putStrLn . show $ cmCode state
 
 main = do
-  ir <- buildLogIr
-  deps <- getDeps
+  args <- getArgs
+  let mode = getMode args
 
+  case mode of
+    BuildLogEfl ->
+      if length args < 2 then showUsage
+        else void $ buildLogIr (args !! 1)
+    Par ->
+      if length args == 1
+        then mkPar Nothing
+        else mkPar (Just $ args !! 1)
   --encodeFile "cache.bin" (ir,deps)
-  (ir, deps) <- decodeFile "cache.bin" :: IO (Program, DepGraph)
+  --(ir, deps) <- decodeFile "cache.bin" :: IO (Program, DepGraph)
 
-  traceM "Vectorizing"
-  let state = vectorizeProgram ir deps
-  return state
+  --traceM "Vectorizing"
+  --let state = vectorizeProgram ir deps
+  --return state
 
-
-buildLogIr = do
-  s <- readFile "output/test.ir"
+getIr :: FilePath -> IO Program
+getIr file = do
+  s <- readFile file
   let readerM = runParserT program "Foo" s :: Reader SymbolMap (Either (ParseError Char String) Program)
   let result = runReader readerM M.empty :: (Either (ParseError Char String) Program)
-  let parsedAst = fromRight (error "Failed to parse program") result :: Program
+  return $ fromRight (error "Failed to parse IR/program") result :: IO Program
+
+buildLogIr file = do
+  parsedAst <- getIr file
+  putStrLn "Annotating log commands"
   --print result
 
   let withLogging = addLogStatements parsedAst
   let fortran_seq = pprEfl withLogging
-  writeFile "output/test.f90" fortran_seq
+  writeFile "output/log.f90" fortran_seq
   --print withLogging
   return withLogging
