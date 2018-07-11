@@ -64,7 +64,7 @@ depGraphAt (nodes, edges) level =
                 (\(DepEdge f t es) -> DepEdge f t (filter filterEdges es)) $
                 edges)
   where
-    filterEdges (_,lvl) = lvl >= level || lvl == 0
+    filterEdges (_,lvl) = lvl > level || lvl == 0
     filterConnections =
         filter f
       where
@@ -83,7 +83,7 @@ data CMState =
     } deriving (Show, Generic)
 
 type CM = State CMState
-type LoopGenInfo = (Expr, Expr, Expr, Entry)
+type LoopGenInfo = (Expr, Expr, Expr, Entry, StatementId)
 
 lilb (lb,_,_,_) = lb
 liub (_,ub,_,_) = ub
@@ -94,6 +94,11 @@ instance (Pretty a1,Pretty a2,Pretty a3,Pretty a4) => Pretty (a1,a2,a3,a4) where
     pretty (e1,e2,e3,e4) =
         "(" <> pretty e1 <> "," <> pretty e2 <> "," <>
             pretty e3 <> "," <> pretty e4 <> ")"
+
+instance (Pretty a1,Pretty a2,Pretty a3,Pretty a4,Pretty a5) => Pretty (a1,a2,a3,a4,a5) where
+    pretty (e1,e2,e3,e4,e5) =
+        "(" <> pretty e1 <> "," <> pretty e2 <> "," <>
+            pretty e3 <> "," <> pretty e4 <> "," <> pretty e5 <> ")"
 
 -- Get loops for statement, outer first
 getLoops :: Program -> StatementId -> Maybe [Statement]
@@ -132,7 +137,7 @@ getLoopInfos :: StatementId -> CM (Maybe [LoopGenInfo])
 getLoopInfos stmtId = do
     p <- getProgram
     let loops = getLoops p stmtId
-    return $ map (\for -> (lb for, ub for, step for, loopvar for)) <$> loops
+    return $ map (\for -> (lb for, ub for, step for, loopvar for, stmtNr for)) <$> loops
 
 
 runCM :: Program -> DepGraph -> CM a -> CMState
@@ -150,7 +155,8 @@ addCode doc = do
 
 vectorizeProgram :: Program -> DepGraph -> CMState
 vectorizeProgram prg deps =
-    let nodes = foldMap (foldStatements (\as x -> if isAssignment x then x:as else as) []) (stmts prg)
+    let nodes = foldMap (foldStatements (\as x -> if isAssignment x then x:as else as) [])
+                        (stmts prg)
         grph = (map stmtNr nodes, snd deps)
         nodeIds = map stmtNr nodes
     in
@@ -164,7 +170,7 @@ vectorCode statements level = do
     -- traceM $ "VectorCode: " ++ show level ++ show statements
     depGraph <- cmDeps <$> get
     let currentGraph = depGraphAt (first (const statements) depGraph) level
-    --traceM $ "graph: " ++ (show . pretty $ currentGraph)
+    --traceM . show $ foldMap (\x -> pretty x <> hardline) $ snd currentGraph
     let scc = getSCC currentGraph
     --traceM $ "scc: " ++ show scc
 
@@ -181,21 +187,24 @@ generateSCC :: LoopLevel -> G.SCC StatementId -> CM ()
 generateSCC level (G.AcyclicSCC stmt) = generateStatement level stmt
 generateSCC level (G.CyclicSCC stmts) = do
     allLoopInfos <- map (drop level) . catMaybes <$> mapM getLoopInfos stmts
-    traceM . show $ "Generate SCC - Statements:" <> pretty stmts <> hardline <>
+{-    traceM . show $ "Generate SCC - Statements:" <> pretty stmts <> hardline <>
                     "level:" <> pretty level <> hardline <>
                     "loopInfo:" <> pretty allLoopInfos
-
+-}
     matched <- checkLoopInfo allLoopInfos
     case matched of
         True -> do
             --We already dealth with <level> loops so get the outermost loop of this level
-            let loop = headNote "Expected a loop for circular dependency" .
+            let mloop = headMay $
                     drop level .
                     headNote "Expected a loop for circular dependency" $
                     allLoopInfos
-            generateMatchedLoops level stmts loop
+            case mloop of
+                Just loop ->generateMatchedLoops level stmts loop
+                Nothing -> mapM_ (generateStatement level) stmts
+
         False -> do
-            generateUnmatchedLoops
+            generateMissmatchedLoops level stmts allLoopInfos
 
 
 generateMatchedLoops :: LoopLevel -> [StatementId] -> LoopGenInfo -> CM ()
@@ -209,17 +218,26 @@ generateMatchedLoops level stmts loopInfo = do
     let loopTail = runReader (withoutLabel $ "end do" <> hardline) (level*4)
     addCode loopTail
 
-generateUnmatchedLoops :: LoopLevel -> [StatementId] -> [LoopGenInfo] -> CM ()
-generateUnmatchedLoops level stmts loopInfo = do
-    traceM "unmatched"
+generateMissmatchedLoops :: LoopLevel -> [StatementId] -> [[LoopGenInfo]] -> CM ()
+generateMissmatchedLoops level stmts loopInfos = do
+    let loopId (_,_,_,_,loopId) = loopId
+    let loopHeaders = map (listToMaybe) loopInfos
+    let pairs = zip stmts loopHeaders
+    let together = groupBy (\x y -> snd x == snd y) pairs :: [[(StatementId, Maybe LoopGenInfo)]]
+    let groups = map (\xs@(x:_) -> (map fst xs, snd x)) together :: [([StatementId], Maybe LoopGenInfo)]
+    mapM_ (generateMissmatchedGroup level) groups
+
+generateMissmatchedGroup :: LoopLevel -> ([StatementId],Maybe LoopGenInfo) -> CM ()
+generateMissmatchedGroup level (stmts, mLoopInfo)
+    | Just loopInfo <- mLoopInfo
+    = generateMatchedLoops level stmts loopInfo
+    | otherwise
+    = mapM_ (generateStatement level) stmts
 
 
-
-
-    undefined
 
 pprForHead :: LoopGenInfo -> PrintState (Doc a)
-pprForHead (lb,ub,step,var) = do
+pprForHead (lb,ub,step,var,_) = do
     withoutLabel $ "do" <+> (pretty $ varName var) <+> "=" <+> pretty lb <+>
              "," <+> pretty ub <+> "," <> pretty step <> hardline
 
@@ -230,13 +248,13 @@ generateStatement level stmtId = do
     let stmt = fromMaybe (error "GenStmt: invalid") $! getStmt p stmtId
     let vectorized = vectorize stmt loopInfo
     --generate vector expression
-    when (stmtId == 4) $
+{-    when (stmtId == 4) $
         traceM $ show ("Vectorized" <> hardline <>
             "level:" <> pretty level <+> "stmt:" <> pretty stmtId <> hardline <>
             pretty loopInfo <> hardline <>
             pretty stmt <> hardline <>
             pretty vectorized
-            )
+            )-}
     addCode $ pprStatement' vectorized (level*4)
 
 vectorize :: Statement -> [LoopGenInfo] -> Statement
@@ -247,7 +265,7 @@ vectorize (Assign nr lhs rhs) lgi =
       rhs' = replaceAll rhs lgi
       replaceAll expr lgis =
         foldl' replaceVar expr lgis
-      replaceVar (VarExpr v) (lb,ub,_step,varEntry)
+      replaceVar (VarExpr v) (lb,ub,_step,varEntry,_)
         | getVarName v == varName varEntry
         = VecExpr lb ub
       replaceVar expr _ = expr
