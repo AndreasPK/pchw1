@@ -145,19 +145,34 @@ pprStatement s = runReader (pprStatementM s) 0
 pprStatement' :: Statement -> Int -> Doc a
 pprStatement' s indent = runReader (pprStatementM s) indent
 
-pprProgram :: Program -> Doc a
-pprProgram (Program name syms stmts) =
+fortranHeader :: Doc a
+fortranHeader = 
     "! Compilers for Parallel Systems" <> hardline <>
     "! 185.A64 SS 2018 A. Klebinger" <> hardline <>
-    "! Generated from EFL IR" <> hardline <>
-    hardline <>
+    "! Generated from EFL IR" <> hardline
+
+pprPrgHeader :: Program -> Doc a
+pprPrgHeader (Program name syms stmts) = 
     "program" <+> pretty name <> hardline <>
     hardline <>
     pprSymbols syms <> hardline <>
+    hardline
+
+pprPrgFooter :: Program -> Doc a
+pprPrgFooter (Program name _ _) =
+    "end program" <+> pretty name <> hardline
+
+pprProgram :: Program -> Doc a
+pprProgram prg@(Program name syms stmts) =
+    fortranHeader <> hardline <>
+    pprPrgHeader prg <>
     hardline <>
-    (mconcat $ map pprStatement stmts) <>
+    mconcat (map pprStatement stmts) <>
     hardline <>
     "end program" <+> pretty name <> hardline
+
+layoutLongLines :: Doc a -> String
+layoutLongLines = renderString . layoutSmart (LayoutOptions Unbounded)
 
 pprEfl =
     renderString . layoutSmart (LayoutOptions Unbounded) . pprProgram

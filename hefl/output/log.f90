@@ -14,6 +14,7 @@ integer :: i
 integer :: j
 integer :: iter
 
+
     write(*,*) '001 omega DEF '
 001 omega = 0.500000
     write(*,*) '901 iter loop_begin'

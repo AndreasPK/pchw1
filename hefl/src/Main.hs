@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
 import Text.Megaparsec
@@ -60,7 +62,7 @@ instance NFData DepEdge
 
 
 getLogEntries = do
-  addLoopInfo . parseLogs <$> readFile "output\\test.f90.log"
+  addLoopInfo . parseLogs <$> readFile "output\\log.f90.log"
 
 getInsts =
   mkStmtInst <$> getLogEntries
@@ -73,14 +75,30 @@ getDeps = do
   let depGraph = (statements, edges)
   return depGraph
 
-getIR = buildLogIr
-data Mode = BuildLogEfl | Par
+data Mode = BuildLogEfl | Par | ShowDeps
+
+
+pprDepGraph :: DepGraph -> Doc a
+pprDepGraph (nodes', edges') =
+  let mkNode n = "s" <> pretty n <> ";"
+      nodes = vcat $ map mkNode nodes'
+      edges = vcat $ map pretty edges'
+  in
+  "digraph G {" <> nest 2 (hardline <> vcat [nodes, edges]) <>
+  "}"
+  
+
+mkDepGraph :: IO ()
+mkDepGraph = do
+  graph <- getDeps
+  putStrLn . show .   pprDepGraph $ graph
+
 
 showUsage :: a
 showUsage =
   unsafePerformIO $ die $
     "\n\tInvalid arguments!" ++
-    "\n\t\tUsage: \t<-log|-par> <file>\n\n"++
+    "\n\t\tUsage: \t<-log|-par|-deps> <file>\n\n"++
     "\teg:" ++
     "\t./hefl -log input/test.ir\n"
 
@@ -88,14 +106,20 @@ getMode :: [String] -> Mode
 getMode args
   | "-log" `elem` args = BuildLogEfl
   | "-par" `elem` args = Par
+  | "-deps" `elem` args = ShowDeps
   | otherwise = showUsage
 
 mkPar mFile = do
   putStrLn "Vectorizing"
   ir <- getIr $ fromMaybe "test1.ir" mFile
   deps <- getDeps
-  let state = vectorizeProgram ir deps
-  putStrLn . show $ cmCode state
+  let header = fortranHeader <> pprPrgHeader ir
+  let state = vectorizeStatements ir deps
+  let loopCode = cmCode state
+  let footer = pprPrgFooter ir
+  let progDoc = header <> loopCode <> footer
+
+  putStrLn . layoutLongLines $ progDoc
 
 main = do
   args <- getArgs
@@ -104,16 +128,18 @@ main = do
   case mode of
     BuildLogEfl ->
       if length args < 2 then showUsage
-        else void $ buildLogIr (args !! 1)
+        else void $ mkLoggingIr (args !! 1)
     Par ->
       if length args == 1
         then mkPar Nothing
         else mkPar (Just $ args !! 1)
+    ShowDeps ->
+      mkDepGraph
   --encodeFile "cache.bin" (ir,deps)
   --(ir, deps) <- decodeFile "cache.bin" :: IO (Program, DepGraph)
 
   --traceM "Vectorizing"
-  --let state = vectorizeProgram ir deps
+  --let state = vectorizeStatements ir deps
   --return state
 
 getIr :: FilePath -> IO Program
@@ -123,7 +149,7 @@ getIr file = do
   let result = runReader readerM M.empty :: (Either (ParseError Char String) Program)
   return $ fromRight (error "Failed to parse IR/program") result :: IO Program
 
-buildLogIr file = do
+mkLoggingIr file = do
   parsedAst <- getIr file
   putStrLn "Annotating log commands"
   --print result

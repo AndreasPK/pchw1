@@ -153,14 +153,13 @@ addCode doc = do
     put (state { cmCode = cmCode state <> doc})
 
 
-vectorizeProgram :: Program -> DepGraph -> CMState
-vectorizeProgram prg deps =
+vectorizeStatements :: Program -> DepGraph -> CMState
+vectorizeStatements prg deps =
     let nodes = foldMap (foldStatements (\as x -> if isAssignment x then x:as else as) [])
                         (stmts prg)
         grph = (map stmtNr nodes, snd deps)
         nodeIds = map stmtNr nodes
     in
-    trace ("nodes" ++ show nodeIds) $
     runCM prg grph (vectorCode nodeIds 0)
 
 vectorCode :: [StatementId] -> LoopLevel -> CM ()
@@ -237,8 +236,8 @@ generateMissmatchedGroup level (stmts, mLoopInfo)
 
 
 pprForHead :: LoopGenInfo -> PrintState (Doc a)
-pprForHead (lb,ub,step,var,_) = do
-    withoutLabel $ "do" <+> (pretty $ varName var) <+> "=" <+> pretty lb <+>
+pprForHead (lb,ub,step,var,_) = 
+    withoutLabel $ "do" <+> pretty (varName var) <+> "=" <+> pretty lb <+>
              "," <+> pretty ub <+> "," <> pretty step <> hardline
 
 generateStatement :: LoopLevel -> StatementId -> CM ()
@@ -262,10 +261,13 @@ vectorize (Assign nr lhs rhs) lgi =
     Assign nr lhs' rhs'
     where
       lhs' = lhs {indexExprs = map (`replaceAll` lgi) (indexExprs lhs)}
-      rhs' = replaceAll rhs lgi
-      replaceAll expr lgis =
-        foldl' replaceVar expr lgis
+      rhs' = mapExpr (`replaceAll` lgi) rhs
+      replaceAll :: Expr -> [LoopGenInfo] -> Expr
+      replaceAll expr lgis = foldl' replaceVar expr lgis
+
       replaceVar (VarExpr v) (lb,ub,_step,varEntry,_)
         | getVarName v == varName varEntry
         = VecExpr lb ub
-      replaceVar expr _ = expr
+        | otherwise
+        = VarExpr v
+      replaceVar expr lgi = expr
